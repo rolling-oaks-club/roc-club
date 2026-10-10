@@ -8,7 +8,7 @@
 <script>
 // Server calls: this page is not inside Apps Script, so google.script.run.x(...) is sent to the web app's doPost.
 (function(){
-  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
+  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
   // Calls that only read (sign-in, data, calendar) are tried up to twice more when the reply is lost on the way back
   // (Safari: "Load failed"; it happens now and then with Apps Script). Saves are never repeated.
   var SAFE = ["whoAmI","unlock","publicData","importProgress","getRulesInfo","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","getSiteText","accessVolunteerList","accessNameCheck"];
@@ -418,6 +418,19 @@ dialog .hint{font-size:12px;color:var(--muted);margin-top:2px}
 #feedDlg .fdsum{margin-left:auto;color:var(--muted);font-size:14px}
 #feedDlg .fdmore .fdhelp{margin:4px 0 12px}
 /* acid feeder settings (2026-10-09): the pop-up rules in DESIGN.md, like the cal-hypo feeder */
+/* feeder off / on (2026-10-10) */
+.fdrun{margin:0 0 12px}
+.fdrun.bottom{margin:18px 0 4px}
+.fdrun .elist .echk{min-height:50px}
+.fdrun .elist .echk:first-child{border-top:0}
+.fdrunw{gap:12px}
+.fdrunw input{flex:1 1 auto;width:auto;min-width:0;max-width:70%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;text-align:right;-webkit-appearance:none;appearance:none}
+.fdrunb{display:flex;gap:8px;margin-top:8px}.fdrunb .btn{flex:1;min-height:44px}
+.fdrunst{margin:8px 4px 0;font-size:14px;line-height:1.45;color:var(--ink2)}
+.fdrunst b{color:var(--ink)}
+.fdrunh{margin:10px 4px 0;font-size:13.5px;line-height:1.6;color:var(--ink2)}
+.fdrunh .lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.fdrunh small{color:var(--muted);font-size:12.5px}
 #acidDlg .aftank{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--ink2)}
 #acidDlg .aftank b{color:var(--ink);font-weight:600}
 #acidDlg .afgauge{flex:0 0 22px;height:34px;border-radius:5px;background:color-mix(in srgb,var(--accent) 16%,var(--card));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);position:relative;overflow:hidden}
@@ -1800,6 +1813,7 @@ dialog.pop.wide{max-width:1040px}
       <p class="fdhelp">CCH Endurance tablets: 265 g, 68% (maker's sheet).</p>
     </details>
   </div>
+  <div class="fdrun bottom" id="fdRun" data-run="cal"></div>
   </div>
   <div class="popfoot"><div class="err" id="fdErr" role="alert"></div><button class="btn primary" type="button" id="fdSave">Save</button></div>
 </dialog>
@@ -1828,6 +1842,7 @@ dialog.pop.wide{max-width:1040px}
       <p class="pophelp">RC303: 12 gal a day (maker's chart). On TIMER it runs that share of every 9 minutes.</p>
     </details>
   </div>
+  <div class="fdrun bottom" id="afRun" data-run="acid"></div>
   </div>
   <div class="popfoot"><div class="err" id="afErr" role="alert"></div><button class="btn primary" type="button" id="afSave">Save</button></div>
 </dialog>
@@ -2770,6 +2785,8 @@ function trkState(t){
     return {lv: dt >= t.warn + 1 ? 'red' : dt >= Math.max(t.warn - 1, 1) ? 'yellow' : 'green', d: dt, due: addDays(ev.day, t.warn)};
   }
   if (!ev) return {lv: 'none', d: null};
+  var Fo = t.type === 'slow' ? (feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null) : null;
+  if (Fo && Fo.offNow) return {lv: 'none', d: daysBetween(ev.day, todayCentral()), off: Fo.offNow};   // feeder off: its job waits (2026-10-10)
   // Put off ("Not yet", t.post from the Job checks tab): the schedule runs as if it was last done (due day - Warn), so
   // yellow / red / "N days late" all count from the new due day. d = days since it was really done; dd = days into the schedule.
   var d = daysBetween(ev.day, todayCentral()), span = t.warn != null ? t.warn : t.over, anchor = ev.day;
@@ -2933,6 +2950,7 @@ function jobNext(t){
   var s = trkState(t), span = t.warn != null ? t.warn : t.over, ev = t.events && t.events[0], today = todayCentral();
   if (t.err) return {txt: 'Check setting', lv: 'red', day: ''};
   if (!ev) return {txt: 'No record', lv: 'none', day: ''};
+  if (s.off) return {txt: 'Feeder off', lv: 'none', day: 'since ' + fmtDay(dayOfMs(s.off), false)};
   if (span == null || !s.due) return {txt: 'No schedule', lv: 'none', day: ''};
   var k = daysBetween(today, s.due), late = s.dd - span, day = k <= 6 && k >= -6 ? fmtDayLong(s.due).replace(/, \d{4}$/, '') : fmtDay(s.due, false);
   if (s.lv === 'red') return {txt: late >= 1 ? late + (late === 1 ? ' day late' : ' days late') : 'Late', lv: 'red', day: 'was due ' + day};
@@ -2982,13 +3000,15 @@ function jobFeedState(t){ return feedJob(t) ? feedState() : acidJob(t) ? feedSta
 /** {empty: true, day} once the newest fill should be used up, {empty: false, days left, day} before; null without a fill.
  *  F = the server's feeder summary (DATA.feeder when left out; DATA.acidFeeder for the acid feeder). */
 function feedState(F){
-  F = F || DATA.feeder; if (!F || !F.emptyAt) return null;
+  F = F || DATA.feeder; if (F && F.offNow) return {off: true, since: F.offNow, wait: F.waitShare};
+  if (!F || !F.emptyAt) return null;
   var now = Date.now(), day = dayOfMs(F.emptyAt);
   return F.emptyAt <= now ? {empty: true, day: day} : {empty: false, left: (F.emptyAt - now) / DAYMS, day: day};
 }
 function dayOfMs(ms){ var d = new Date(ms - 5 * 3600000); return d.toISOString().slice(0, 10); }   // Central (CDT; an hour off in winter is fine here)
 function feedLeftHtml(st){
   if (!st) return '';
+  if (st.off) return '<b>⏸ Feeder off since ' + esc(runWhen(st.since)) + '</b><span class="m">' + (isNum(st.wait) && st.wait > 0 ? 'About ' + Math.round(st.wait * 100) + '% of the last fill is waiting in it. ' : '') + 'Not due until it’s back on.</span>';
   return st.empty ? '<b class="e">Probably empty since ' + esc(trkDay(st.day)) + '</b>' :
     '<b>About ' + (st.left < 1 ? 'a day' : Math.round(st.left) + (Math.round(st.left) === 1 ? ' day' : ' days')) + ' left <span>(runs out ' + esc(jobShort(st.day)) + ')</span></b>';
 }
@@ -3196,6 +3216,7 @@ function renderJobs(ts){
   var lines = [];
   all.forEach(function(i){
     var fe = jobFeedState(ts[i]);
+    if (fe && fe.off) lines.push('<div class="jline"><span>⏸ ' + (feedJob(ts[i]) ? 'Cal-hypo' : 'Acid') + ' feeder off since ' + esc(trkDay(dayOfMs(fe.since))) + '</span></div>');
     if (fe && fe.empty && due.indexOf(i) < 0) lines.push('<div class="jline"><span>' + (feedJob(ts[i]) ? 'Cal-hypo' : 'Acid') + ' feeder probably empty since ' + esc(trkDay(fe.day)) + '</span></div>');
   });
   if (!rows.length && all.length) lines.push('<div class="jline"><span><span class="ok">✓</span> <b>All jobs done</b></span></div>');
@@ -4732,7 +4753,7 @@ function feedOpen(){
   $('fdLets').innerHTML = Object.keys(F.table).map(function(L){ return '<button type="button" role="radio" data-fdl="' + L + '">' + L + '</button>'; }).join('');
   $('fdLetter').value = f.letter; $('fdTabs').value = f.tabs; $('fdDays').value = f.days == null ? '' : f.days;
   $('fdTabG').value = f.tabG; $('fdPct').value = f.pct; $('fdErr').textContent = '';
-  feedAddVis(); feedCalc(); openMenu('feedDlg');   // opens with nothing focused (no picker popping up on iPhone)
+  feedAddVis(); feedCalc(); runPend.cal = false; runDraw('cal'); openMenu('feedDlg');   // opens with nothing focused (no picker popping up on iPhone)
 }
 function feedRead(){
   var rows = [];
@@ -4830,7 +4851,47 @@ function acidOpen(){
   acidLog = A.set.log.map(function(e){ return {ms: e.ms, pct: e.pct, by: e.by || ''}; });
   $('afPct').value = A.pct; $('afAcid').value = A.set.acid; $('afWater').value = A.set.water; $('afGpd').value = A.set.gpd;
   $('afAt').value = acidLocal(Date.now()); $('afErr').textContent = '';
-  acidCalc(); openMenu('acidDlg');
+  acidCalc(); runPend.acid = false; runDraw('acid'); openMenu('acidDlg');
+}
+/* ---- feeder off / on (2026-10-10): a "Feeder running" switch at the bottom of each feeder window (Manager). Flipping it
+   asks when (now unless set back) and saves at once (server setFeederRunning). While off, nothing from the feeder counts,
+   what's left waits in it, and its job has no due date; back on, it picks up where it stopped (server feederRelease_ /
+   acidRelease_). */
+var runPend = {cal: false, acid: false}, runBusy = false;
+function runF(k){ return k === 'acid' ? DATA && DATA.acidFeeder : DATA && DATA.feeder; }
+function runWhen(ms){ return new Date(ms).toLocaleString('en-US', {timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}); }
+function runLen(ms){ var h = ms / 3600000; return h < 48 ? Math.max(1, Math.round(h)) + ' h' : (Math.round(h / 24 * 10) / 10) + ' days'; }
+function runDraw(k){
+  var el = $(k === 'acid' ? 'afRun' : 'fdRun'), F = runF(k); if (!el || !F) return;
+  var off = F.offNow, pend = runPend[k], want = pend ? !!off : !off, nm = k === 'acid' ? 'acid' : 'chlorine';
+  var h = '<div class="elist"><label class="echk"><span>Feeder running</span><input type="checkbox" class="esw" data-runsw' + (want ? ' checked' : '') + '></label>';
+  if (pend) h += '<div class="echk fdrunw"><span>' + (off ? 'Turned back on' : 'Turned off') + '</span><input type="datetime-local" data-runat value="' + acidLocal(Date.now()) + '" max="' + acidLocal(Date.now()) + '"></div>';
+  h += '</div>';
+  if (pend) h += '<div class="fdrunb"><button type="button" class="btn" data-runno>Cancel</button><button type="button" class="btn primary" data-rungo>' + (off ? 'Turn on' : 'Turn off') + '</button></div><div class="err" data-runerr></div>';
+  else if (off) h += '<p class="fdrunst">⏸ <b>Off since ' + esc(runWhen(off)) + '</b>' + (F.off.length && F.off[F.off.length - 1].by ? ' · ' + esc(firstName(F.off[F.off.length - 1].by)) : '') +
+    '. No ' + nm + ' from it is counted and its job waits.' + (isNum(F.waitShare) && F.waitShare > 0 ? ' About ' + Math.round(F.waitShare * 100) + '% of the last fill is still in it.' : '') + '</p>';
+  var hist = (F.off || []).slice().reverse().slice(0, 5);
+  if (hist.length && !pend) h += '<div class="fdrunh"><span class="lbl">On / off history</span>' + hist.map(function(e){
+    return '<div><b>Off</b> ' + esc(runWhen(e.from)) + (e.to ? ' → ' + esc(runWhen(e.to)) + ' <small>' + runLen(e.to - e.from) + '</small>' : ' <small>still off</small>') + (e.by ? ' <small>· ' + esc(firstName(e.by)) + '</small>' : '') + '</div>';
+  }).join('') + '</div>';
+  el.innerHTML = h;
+}
+function runWire(dlgId, k){
+  var dlg = $(dlgId);
+  dlg.addEventListener('change', function(e){ if (e.target.hasAttribute && e.target.hasAttribute('data-runsw')) { e.stopPropagation(); runPend[k] = !runPend[k]; runDraw(k); } }, true);
+  dlg.addEventListener('click', function(e){
+    if (e.target.closest('[data-runno]')) { runPend[k] = false; runDraw(k); return; }
+    if (!e.target.closest('[data-rungo]') || runBusy) return;
+    var F = runF(k), on = !!F.offNow, at = dlg.querySelector('[data-runat]'), ms = at && at.value ? Date.parse(at.value) : Date.now(), err = dlg.querySelector('[data-runerr]');
+    runBusy = true; e.target.textContent = 'Saving…';
+    serverCall('setFeederRunning', [CODE, k, on, ms], function(res){
+      runBusy = false;
+      if (handleDenied(res)) return;
+      if (!res || !res.ok) { if (err) err.textContent = (res && res.message) || 'Could not save.'; e.target.textContent = on ? 'Turn on' : 'Turn off'; return; }
+      DATA = res.data; runPend[k] = false; renderAll(); runDraw(k);
+      if (k === 'acid') acidCalc(); else feedCalc();
+    }, function(x){ runBusy = false; e.target.textContent = on ? 'Turn on' : 'Turn off'; if (err) err.textContent = 'Could not reach the server: ' + (x && x.message || x); });
+  });
 }
 function lsGetFeeder(){ try { return localStorage.getItem('rocFeeder') === 'acid' ? 'acid' : 'cal'; } catch(e){ return 'cal'; } }
 function feederOpen(k){
@@ -4867,7 +4928,9 @@ function acidCalc(){
   var h = '<div class="popbig"><b>' + (days ? (days >= 100 ? Math.round(days) : r1(days)) : '–') + '</b><span>days per fill</span></div>' +
     '<div class="popstats"><span><b>' + r2(acidDay) + ' gal</b> acid a day</span><span><b>TA −' + r1(ta) + '</b> a day</span><span><b>' + r2(mix) + ' gal</b> mix a day</span></div>';
   // the tank now: what is left of the newest fill at the saved setting, then at this one
-  if (A.emptyAt && A.lastFill) {
+  if (A.offNow && A.lastFill && isNum(A.waitShare)) {
+    h += '<div class="aftank"><span class="afgauge" aria-hidden="true"><i style="height:' + Math.round(A.waitShare * 100) + '%"></i></span><span><b>Off: about ' + Math.round(A.waitShare * 100) + '% left</b>, waiting<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
+  } else if (A.emptyAt && A.lastFill) {
     var now = Date.now(), left = A.emptyAt > now && A.acidDay > 0 ? (A.emptyAt - now) / DAYMS * A.acidDay : 0, share = Math.max(0, Math.min(1, left / A.set.acid));
     var dl = left > 0 && acidDay > 0 ? left / acidDay : null, txt;
     if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(A.emptyAt)));
@@ -5850,6 +5913,7 @@ document.addEventListener('DOMContentLoaded', function(){
   $('chgOut').addEventListener('click', function(){ closeDlg('chgDlg'); lockNow(''); });
   feedWire();
   acidWire();
+  runWire('feedDlg', 'cal'); runWire('acidDlg', 'acid');
   $('rmDone').addEventListener('click', function(){ closeDlg('removedDlg'); });
   $('rmList').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-rmback]');
