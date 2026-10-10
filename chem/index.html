@@ -1103,6 +1103,31 @@ html.app #entryUi.menu .macts{display:flex}
 .erec .r b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
 .erec .r .g{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink2)}
 .erec .none{padding:8px 4px;font-size:13px;color:var(--muted)}
+/* pump panel design pass (2026-10-09): full-width boxes, each with its line right under it (like the Pump Log app) */
+.etile.epbig{margin-top:6px}
+.etile.epbig .nm i{font-size:12px}
+.etile.epbig input,html .etile.epbig input{font-size:30px !important;font-weight:650}   /* over the phones' 16px rule (30px won't zoom) */
+.epin{display:flex;align-items:baseline;gap:6px}
+.epin input{flex:1;min-width:0}
+.epin em{font-style:normal;font-size:15px;color:var(--muted)}
+.ephint{margin:4px 6px 4px;font-size:13.5px;line-height:1.4;color:var(--ink2);min-height:19px}
+.ephint b{color:var(--ink);font-variant-numeric:tabular-nums}
+.ephint .warn{color:var(--red)}
+.epdelta{margin:8px 0 0;border-radius:16px;background:var(--frost);box-shadow:inset 0 0 0 .5px var(--frostLine);padding:10px 14px;font-size:14px;line-height:1.45;color:var(--ink2)}
+.epdelta[hidden]{display:none}
+.epdelta .lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.epdelta b{color:var(--ink);font-variant-numeric:tabular-nums}
+.epdelta.warn{background:color-mix(in srgb,var(--yellow) 18%,var(--frost));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yellow) 60%,transparent)}
+.epdelta.bad{background:color-mix(in srgb,var(--red) 16%,var(--frost));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red) 60%,transparent)}
+.epdelta.bad b,.epdelta.bad{color:var(--ink)}
+.elist.epnote{margin-top:12px}
+.elist.epnote .etext{padding:14px 0;min-height:50px}
+.elist.epnote .echk:first-child{border-top:0}
+.erec .r .gp{font-weight:650;color:var(--ink)}
+.erec .r.well .gp{color:color-mix(in srgb,var(--water) 80%,var(--ink))}
+.erec .r.pool .gp{color:color-mix(in srgb,var(--k-ch) 80%,var(--ink))}
+.erec .r .tk{white-space:nowrap;font-size:12px;color:var(--ink2)}
+.erec .r .tk.full{font-weight:650;color:color-mix(in srgb,var(--green) 75%,var(--ink));background:color-mix(in srgb,var(--green) 16%,transparent);border-radius:999px;padding:1px 8px}
 /* Add chemical panel (2026-10-07): chemical buttons, then one block per chemical (amount + unit, strength, slow feeder, estimate, stock) */
 .ecpick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;container-type:inline-size}
 .ecpick button{height:48px;min-width:0;border:1.5px solid transparent;border-radius:14px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--ink);font:inherit;font-size:14.5px;font-size:min(15px,3.9cqi);font-weight:600;text-align:left;padding:0 9px;cursor:pointer;line-height:1.2;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;letter-spacing:-.01em}
@@ -6197,67 +6222,107 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="eseg" role="group" aria-label="Which meter">' +
         '<button type="button" data-pt="well" style="--c:var(--water)">Well<small>Groundwater meter</small></button>' +
         '<button type="button" data-pt="pool" style="--c:var(--k-ch)">Pool<small>Pool-fill meter</small></button></div>' +
-      '<div class="etiles two">' +
-        '<label class="etile" id="epReadT" style="--c:var(--water)"><span class="nm">Meter reading<i>gal</i></span>' +
-          '<input id="epRead" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off"><span class="ls" id="epReadLs">Loading…</span></label>' +
-        '<label class="etile" id="epTankT" style="--c:var(--k-ch)"><span class="nm">Tank level<i>gal</i></span>' +
-          '<input id="epTank" inputmode="decimal" enterkeyhint="done" placeholder="–" autocomplete="off"><span class="ls" id="epTankLs">optional</span></label>' +
-      '</div>' +
-      '<div class="ecsi ep" id="epInfo"></div>' +
-      '<div class="egrp"><b>Note</b><span id="epNoteHd"></span></div>' +
-      '<input class="etext" id="epNote" maxlength="500" style="min-height:0" placeholder="Anything worth flagging" autocomplete="off">' +
-      '<div class="egrp"><b>Last readings</b><span id="epRecHd"></span></div><div class="erec" id="epRec"><div class="none">Loading…</div></div>';
+      // design pass 2026-10-09 (like the Pump Log app): one full-width box per number, its own line right under it
+      '<label class="etile epbig" id="epReadT" style="--c:var(--water)"><span class="nm">Meter reading<i id="epReadLs">Loading…</i></span>' +
+        '<input id="epRead" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off"></label>' +
+      '<div class="ephint" id="epReadH"></div>' +
+      '<div id="epTankW"><label class="etile epbig" id="epTankT" style="--c:var(--k-ch)"><span class="nm">Tank level<i id="epTankLs">optional</i></span>' +
+        '<span class="epin"><input id="epTank" inputmode="decimal" enterkeyhint="done" placeholder="–" autocomplete="off"><em>gal</em></span></label>' +
+      '<div class="ephint" id="epTankH"></div><div class="epdelta" id="epDelta" hidden></div></div>' +
+      '<div class="elist epnote"><input class="etext" id="epNote" maxlength="500" placeholder="Note (optional)" autocomplete="off">' +
+        '<label class="echk" id="epFullRow">Tank is full<input type="checkbox" class="esw" id="epFull"></label></div>' +
+      '<div class="egrp"><b id="epRecHd">Last readings</b></div><div class="erec" id="epRec"><div class="none">Loading…</div></div>';
   }
   /** Well / Pool switch and the parts that depend on it. prefill: put the last reading in the box (like the Pump Log app). */
   function pumpFill(prefill){
     var t = pump.type, last = pumpLast(t);
     body.querySelectorAll('[data-pt]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-pt') === t ? 'true' : 'false'); });
     $('epReadT').style.setProperty('--c', t === 'well' ? 'var(--water)' : 'var(--k-ch)');
-    $('epTankT').style.display = t === 'well' ? '' : 'none';
-    $('epReadT').classList.toggle('wide', t !== 'well');
-    $('epNoteHd').textContent = t === 'well' ? 'optional · "Tank full" turns the row green' : 'optional';
-    if (prefill) $('epRead').value = last ? String(last.reading) : '';
-    $('epReadLs').textContent = pump.readings ? (last ? 'Last ' + meter(last.reading) + ' · ' + hrsAgo(last.timestamp) : 'No reading yet') : (pump.err ? 'Not loaded' : 'Loading…');
+    $('epTankW').style.display = t === 'well' ? '' : 'none';
+    $('epFullRow').style.display = t === 'well' ? '' : 'none';
+    $('epFull').checked = t === 'well' && $('epTank').value.trim() !== '' && Number($('epTank').value.replace(/,/g, '')) >= TANK_GAL;
+    if (prefill) $('epRead').value = last ? meter(last.reading).replace(/,/g, '') : '';
+    $('epReadLs').textContent = pump.readings ? (last ? 'last ' + agoLong(last.timestamp) : 'no reading yet') : (pump.err ? 'not loaded' : 'loading…');
     var tk = pumpLast('well', 'tankLevel');
     $('epTank').placeholder = tk ? gal(tk.tankLevel) : '–';
-    $('epTankLs').textContent = tk ? 'Last ' + gal(tk.tankLevel) + ' · ' + hrsAgo(tk.timestamp) : 'optional';
-    var rs = (pump.readings || []).filter(function(r){ return r.type === t; }).slice(0, 4);
-    $('epRecHd').textContent = t === 'well' ? 'Well' : 'Pool';
+    $('epTankLs').textContent = tk ? 'last ' + gal(tk.tankLevel) + ' · ' + agoLong(tk.timestamp) : 'optional';
+    var rs = (pump.readings || []).filter(function(r){ return r.type === t; }).slice(0, 5);
+    $('epRecHd').textContent = 'Last ' + (t === 'well' ? 'well' : 'pool') + ' readings';
     $('epRec').innerHTML = pump.err ? '<div class="none" style="color:var(--red)">' + esc(pump.err) + '</div>' : !pump.readings ? '<div class="none">Loading…</div>' :
       !rs.length ? '<div class="none">No readings yet.</div>' : rs.map(function(r){
-        var gpd = r.gpd !== '' && isFinite(Number(r.gpd)) ? gal(r.gpd) + ' GPD' : '';
-        var tank = r.type === 'well' && r.tankLevel !== '' && r.tankLevel != null ? 'Tank ' + gal(r.tankLevel) : '';
-        return '<div class="r"><div><b>' + meter(r.reading) + '</b><span class="g">' + gpd + '</span></div>' +
-          '<div><span>' + esc(stamp(r.timestamp)) + (r.by ? ' · ' + esc(r.by) : '') + (r.notes ? ' · ' + esc(r.notes) : '') + '</span><span class="g">' + tank + '</span></div></div>';
+        var gpd = r.gpd !== '' && isFinite(Number(r.gpd)) ? '<span class="gp">' + gal(r.gpd) + '</span> GPD' : '';
+        var full = r.type === 'well' && ((r.tankLevel !== '' && r.tankLevel != null && Number(r.tankLevel) >= TANK_GAL) || /tank full/i.test(r.notes || ''));
+        var tank = r.type === 'well' && r.tankLevel !== '' && r.tankLevel != null ? '<span class="tk' + (full ? ' full' : '') + '">' + (full ? 'Full' : 'Tank ' + gal(r.tankLevel)) + '</span>' : full ? '<span class="tk full">Full</span>' : '';
+        return '<div class="r ' + r.type + '"><div><b>' + meter(r.reading) + '</b><span class="g">' + gpd + '</span></div>' +
+          '<div><span>' + esc(stamp(r.timestamp)) + (r.by ? ' · ' + esc(r.by) : '') + (r.notes ? ' · ' + esc(r.notes) : '') + '</span>' + tank + '</div></div>';
       }).join('');
     refresh();
   }
-  /** The line under the tiles: water since the last reading, and (Well) how full the tank is. */
-  function pumpInfo(w){
-    var t = pump.type, last = pumpLast(t), lines = [];
-    var raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw);
-    if (last && isFinite(v) && w) {
-      var g = v - Number(last.reading), h = (w.ms - Date.parse(last.timestamp)) / 3600000;
-      if (h > 0) lines.push(g === 0 ? 'Same as the last reading.' : '<b>' + (g > 0 ? '+' : '') + gal(g) + ' gal</b> in ' + (h < 48 ? h.toFixed(1) + ' h' : (h / 24).toFixed(1) + ' days') +
-        ' · <b>' + gal(g / h * 24) + '</b> GPD' + (g < 0 ? ' · lower than last time, check the number' : ''));
+  /** The line under the meter reading: water since the last reading. */
+  function pumpReadHint(w){
+    var last = pumpLast(pump.type), raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw);
+    if (!last) return '';
+    if (!isFinite(v) || !w) return 'Last reading <b>' + meter(last.reading) + '</b>, ' + esc(stamp(last.timestamp));
+    var g = v - Number(last.reading), h = (w.ms - Date.parse(last.timestamp)) / 3600000;
+    if (h <= 0) return 'The time is before the last reading (' + esc(stamp(last.timestamp)) + ').';
+    if (g === 0) return 'Same as the last reading: change it to what the meter shows now.';
+    return '<b>' + (g > 0 ? '+' : '') + gal(g) + ' gal</b> in ' + (h < 48 ? h.toFixed(1) + ' hours' : (h / 24).toFixed(1) + ' days') +
+      ' · <b>' + gal(g / h * 24) + '</b> gal a day' + (g < 0 ? '<br><span class="warn">Lower than last time: check the number.</span>' : '');
+  }
+  /** The line under the tank level (Well): how full, and where it's heading. */
+  function pumpTankHint(){
+    var tr = $('epTank').value.trim().replace(/,/g, ''), typed = tr !== '' && isFinite(Number(tr)), tk = pumpLast('well', 'tankLevel');
+    var lv = typed ? Number(tr) : tk ? Number(tk.tankLevel) : null;
+    if (lv === null) return 'How many gallons the tank shows, if you checked it.';
+    var pct = Math.round(Math.min(lv, TANK_GAL) / TANK_GAL * 100), s = '<b>' + pct + '%</b> full' + (typed ? '' : ' at the last check');
+    var wg = pump.rates.well, pg = pump.rates.pool || 0;
+    if (lv >= TANK_GAL) return s + ' · the well only replaces what is used';
+    if (!isNum(wg)) return s;
+    var net = wg - pg, left = TANK_GAL - lv;
+    if (net > 0) return s + ' · about <b>' + (left / net).toFixed(1) + ' days</b> to full';
+    if (lv > TANK_RESERVE) return s + ' · draining, about <b>' + ((lv - TANK_RESERVE) / -net).toFixed(1) + ' days</b> to the ' + gal(TANK_RESERVE) + ' gal reserve';
+    return s + ' · at or below the ' + gal(TANK_RESERVE) + ' gal reserve';
+  }
+  /** Well vs pool (2026-10-10, Camelo: "the difference between what is pumped and what is put in the pool, at a glance").
+   *  Well = gal a day since the last well reading (the typed one, or the last two readings); pool = its meter over about the
+   *  same stretch. Tank full: the well only replaces what is used, so the gap is other use (clubhouse, leaks); otherwise the
+   *  gap goes into (or out of) the tank. Warning colors: other use from DELTA_WARN gal a day, red from DELTA_BAD; draining. */
+  var DELTA_WARN = 100, DELTA_BAD = 200;
+  function pumpDelta(w){
+    var rs = pump.readings || [], wl = rs.filter(function(r){ return r.type === 'well'; }), pl = rs.filter(function(r){ return r.type === 'pool'; });
+    if (!wl.length || pl.length < 2) return null;
+    var raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw), a, b, wg = null;
+    if (isFinite(v) && w && v !== Number(wl[0].reading) && w.ms > Date.parse(wl[0].timestamp)) {
+      a = Date.parse(wl[0].timestamp); b = w.ms; wg = (v - Number(wl[0].reading)) / ((b - a) / 3600000) * 24;
+    } else if (wl.length >= 2) {
+      a = Date.parse(wl[1].timestamp); b = Date.parse(wl[0].timestamp); wg = (Number(wl[0].reading) - Number(wl[1].reading)) / ((b - a) / 3600000) * 24;
     }
-    if (t === 'well') {
-      var tr = $('epTank').value.trim().replace(/,/g, ''), typed = tr !== '' && isFinite(Number(tr)), tk = pumpLast('well', 'tankLevel');
-      var lv = typed ? Number(tr) : tk ? Number(tk.tankLevel) : null;
-      if (lv !== null) {
-        var left = TANK_GAL - lv, s = '<b>' + Math.round(lv / TANK_GAL * 100) + '%</b> full' + (typed ? '' : ' (last known)');
-        var wg = pump.rates.well, pg = pump.rates.pool || 0;
-        if (left <= 0) s += ' · tank is at capacity';
-        else if (isNum(wg)) {
-          var net = wg - pg;
-          if (net > 0) s += ' · about <b>' + (left / net).toFixed(1) + '</b> days to full';
-          else if (lv > TANK_RESERVE) s += ' · draining, about <b>' + ((lv - TANK_RESERVE) / -net).toFixed(1) + '</b> days to the ' + gal(TANK_RESERVE) + ' gal reserve';
-          else s += ' · at or below the ' + gal(TANK_RESERVE) + ' gal reserve';
-        }
-        lines.push(s);
-      }
-    }
-    return lines.join('<br>');
+    if (wg === null || !isFinite(wg)) return null;
+    // pool: from its reading closest to the start of the well's stretch to its latest one (at least 12 hours apart)
+    var p1 = pl[0], p0 = null;
+    pl.forEach(function(r){ var t = Date.parse(r.timestamp); if (Date.parse(p1.timestamp) - t >= 12 * 3600000 && (!p0 || Math.abs(t - a) < Math.abs(Date.parse(p0.timestamp) - a))) p0 = r; });
+    if (!p0) return null;
+    var ph = (Date.parse(p1.timestamp) - Date.parse(p0.timestamp)) / 3600000, pg = (Number(p1.reading) - Number(p0.reading)) / ph * 24;
+    var tr = $('epTank').value.trim().replace(/,/g, ''), tk = pumpLast('well', 'tankLevel');
+    var full = $('epFull').checked || (tr !== '' ? Number(tr) >= TANK_GAL : !!(tk && Number(tk.tankLevel) >= TANK_GAL));
+    return {well: wg, pool: pg, d: wg - pg, full: full};
+  }
+  function pumpDeltaHtml(x){
+    if (!x) return '';
+    var d = Math.round(x.d), sum = 'Well ' + gal(x.well) + ' − pool ' + gal(x.pool) + ' = ', cls = '', what;
+    if (x.full) {
+      if (d < 0) { what = '<b>' + gal(d) + '</b> gal a day: the pool drew on the tank’s stored water'; }
+      else { what = '<b>' + gal(d) + ' gal a day</b> other use (clubhouse, leaks)'; cls = d >= DELTA_BAD ? 'bad' : d >= DELTA_WARN ? 'warn' : ''; }
+    } else if (d >= 0) what = '<b>+' + gal(d) + ' gal a day</b> into the tank';
+    else { what = '<b>' + gal(d) + ' gal a day</b> out of the tank'; cls = 'warn'; }
+    return '<span class="lbl">Well vs pool</span>' + sum + what + (cls === 'bad' ? '<br>Much more than usual: check for a leak.' : '');
+  }
+  function agoLong(iso){
+    var m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60); if (h < 24) return h + (h === 1 ? ' hour' : ' hours') + ' ago';
+    var d = Math.floor(h / 24), r = h - d * 24;
+    return d + (d === 1 ? ' day' : ' days') + (r ? ', ' + r + ' h' : '') + ' ago';
   }
   function pumpVals(){
     var raw = $('epRead').value.trim().replace(/,/g, ''), tr = pump.type === 'well' ? $('epTank').value.trim().replace(/,/g, '') : '';
@@ -6586,7 +6651,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if (mode === 'pump') {
       var pv = pumpVals(), rOdd = pv.readRaw !== '' && !isFinite(pv.reading), tOdd = pv.tank !== '' && !(pv.tank >= 0 && pv.tank <= TANK_GAL * 1.1);
       $('epReadT').classList.toggle('odd', rOdd); $('epTankT').classList.toggle('odd', tOdd);
-      $('epInfo').innerHTML = rOdd ? '' : pumpInfo(when());
+      $('epReadH').innerHTML = rOdd ? '<span class="warn">That doesn’t look like a meter number.</span>' : pumpReadHint(when());
+      if (pump.type === 'well') {
+        $('epTankH').innerHTML = tOdd ? '<span class="warn">The tank holds ' + gal(TANK_GAL) + ' gal.</span>' : pumpTankHint();
+        var dx = rOdd ? null : pumpDelta(when()), dh = pumpDeltaHtml(dx), de = $('epDelta');
+        de.innerHTML = dh; de.hidden = !dh;
+        de.className = 'epdelta' + (dx && dh ? (dx.full ? (Math.round(dx.d) >= DELTA_BAD ? ' bad' : Math.round(dx.d) >= DELTA_WARN ? ' warn' : '') : (dx.d < 0 ? ' warn' : '')) : '');
+      }
       save.disabled = busy || !isFinite(pv.reading) || rOdd || tOdd;
       return;
     }
@@ -6674,6 +6745,13 @@ document.addEventListener('DOMContentLoaded', function(){
       }); });
       $('epRead').addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); if (pump.type === 'well') $('epTank').focus(); else $('epRead').blur(); } });
       $('epTank').addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); $('epTank').blur(); } });
+      // Tank is full: fills in the tank level and saves "Tank Full" in the note (the Pump Log turns the row green)
+      $('epFull').addEventListener('change', function(){
+        if (this.checked) $('epTank').value = String(TANK_GAL);
+        else if (Number($('epTank').value.replace(/,/g, '')) >= TANK_GAL) $('epTank').value = '';
+        refresh();
+      });
+      $('epTank').addEventListener('input', function(){ var v = Number(this.value.replace(/,/g, '')); $('epFull').checked = this.value.trim() !== '' && v >= TANK_GAL; });
       pumpFill(true); pumpLoad();
     }
     FIELDS.forEach(function(f, i){
@@ -6844,7 +6922,9 @@ document.addEventListener('DOMContentLoaded', function(){
   function savePump(w){
     var pv = pumpVals();
     if (!isFinite(pv.reading)) { say('Enter the meter reading.', 'err'); return; }
-    var payload = {type: pump.type, reading: pv.reading, localDateTime: w.s, notes: $('epNote').value, name: ''};
+    var note = $('epNote').value.trim();
+    if (pump.type === 'well' && $('epFull').checked && !/tank full/i.test(note)) note = 'Tank Full' + (note ? '; ' + note : '');
+    var payload = {type: pump.type, reading: pv.reading, localDateTime: w.s, notes: note, name: ''};
     if (pump.type === 'well' && pv.tank !== '') payload.tankLevel = pv.tank;
     closePanel();
     bgRun((pump.type === 'well' ? 'Well' : 'Pool') + ' reading', function(ok, fail){ pumpCall('addReading', [CODE, payload], ok, fail); },
