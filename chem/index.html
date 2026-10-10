@@ -1105,6 +1105,10 @@ html.app #entryUi.menu .macts{display:flex}
 .erec .none{padding:8px 4px;font-size:13px;color:var(--muted)}
 /* pump panel design pass (2026-10-09): full-width boxes, each with its line right under it (like the Pump Log app) */
 .etile.epbig{margin-top:6px}
+.epfill{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:46px;margin:0 0 2px;border:0;border-radius:16px;background:var(--frost);box-shadow:inset 0 0 0 .5px var(--frostLine);padding:0 14px;font:inherit;font-size:15px;color:var(--accent);cursor:pointer;text-align:left}
+.epfill[hidden]{display:none}
+.epfill span{color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.epfill.on{color:color-mix(in srgb,var(--green) 75%,var(--ink));cursor:default}
 .etile.epbig .nm i{font-size:12px}
 .etile.epbig input,html .etile.epbig input{font-size:30px !important;font-weight:650}   /* over the phones' 16px rule (30px won't zoom) */
 .epin{display:flex;align-items:baseline;gap:6px}
@@ -6222,6 +6226,7 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="eseg" role="group" aria-label="Which meter">' +
         '<button type="button" data-pt="well" style="--c:var(--water)">Well<small>Groundwater meter</small></button>' +
         '<button type="button" data-pt="pool" style="--c:var(--k-ch)">Pool<small>Pool-fill meter</small></button></div>' +
+      '<button type="button" class="epfill" id="epFill" hidden></button>' +
       // design pass 2026-10-09 (like the Pump Log app): one full-width box per number, its own line right under it
       '<label class="etile epbig" id="epReadT" style="--c:var(--water)"><span class="nm">Meter reading<i id="epReadLs">Loading…</i></span>' +
         '<input id="epRead" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off"></label>' +
@@ -6257,6 +6262,27 @@ document.addEventListener('DOMContentLoaded', function(){
           '<div><span>' + esc(stamp(r.timestamp)) + (r.by ? ' · ' + esc(r.by) : '') + (r.notes ? ' · ' + esc(r.notes) : '') + '</span>' + tank + '</div></div>';
       }).join('');
     refresh();
+  }
+  /** Pool fill cycle (2026-10-10, Camelo): the autofill runs every 6 hours (midnight, 6 AM, noon, 6 PM, the Pump Dashboard's
+   *  default schedule) and the pool reading is logged 15 minutes after a fill, so gal a day comes out right. The newest
+   *  "fill + 15 min" that isn't in the future, as {day, time} in pool time. */
+  var FILL_EVERY_H = 6, FILL_AFTER_MIN = 15;
+  function lastFillTime(){
+    var n = nowLocal(), mins = (+n.time.slice(0, 2)) * 60 + (+n.time.slice(3, 5)), step = FILL_EVERY_H * 60;
+    var t = Math.floor((mins - FILL_AFTER_MIN) / step) * step + FILL_AFTER_MIN, day = n.day;
+    if (t < 0) { t += 24 * 60; day = addDays(day, -1); }
+    var hh = Math.floor(t / 60), mm = t % 60;
+    return {day: day, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm};
+  }
+  function fillLabel(f){ var hh = +f.time.slice(0, 2); return (hh % 12 || 12) + ':' + f.time.slice(3) + (hh < 12 ? ' AM' : ' PM'); }
+  function pumpFillBtn(){
+    var b = $('epFill'); if (!b) return;
+    b.hidden = pump.type !== 'pool';
+    if (b.hidden) return;
+    var f = lastFillTime(), on = $('eDate').value === f.day && $('eTime').value === f.time;
+    b.classList.toggle('on', on);
+    b.innerHTML = on ? '✓ Time set to the last fill + 15 min <span>' + fillLabel(f) + '</span>'
+      : 'Set time to the last fill + 15 min <span>' + fillLabel(f) + '</span>';
   }
   /** The line under the meter reading: water since the last reading. */
   function pumpReadHint(w){
@@ -6651,6 +6677,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (mode === 'pump') {
       var pv = pumpVals(), rOdd = pv.readRaw !== '' && !isFinite(pv.reading), tOdd = pv.tank !== '' && !(pv.tank >= 0 && pv.tank <= TANK_GAL * 1.1);
       $('epReadT').classList.toggle('odd', rOdd); $('epTankT').classList.toggle('odd', tOdd);
+      pumpFillBtn();
       $('epReadH').innerHTML = rOdd ? '<span class="warn">That doesn’t look like a meter number.</span>' : pumpReadHint(when());
       if (pump.type === 'well') {
         $('epTankH').innerHTML = tOdd ? '<span class="warn">The tank holds ' + gal(TANK_GAL) + ' gal.</span>' : pumpTankHint();
@@ -6752,6 +6779,9 @@ document.addEventListener('DOMContentLoaded', function(){
         refresh();
       });
       $('epTank').addEventListener('input', function(){ var v = Number(this.value.replace(/,/g, '')); $('epFull').checked = this.value.trim() !== '' && v >= TANK_GAL; });
+      $('epFill').addEventListener('click', function(){
+        var f = lastFillTime(); $('eDate').value = f.day; $('eTime').value = f.time; refresh();
+      });
       pumpFill(true); pumpLoad();
     }
     FIELDS.forEach(function(f, i){
