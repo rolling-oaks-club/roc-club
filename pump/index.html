@@ -416,6 +416,13 @@
     color: var(--ink-2);
     margin-bottom: 6px;
   }
+  /* well vs pool at a glance (2026-10-10): the gap is other use when full, into / out of the tank otherwise */
+  .tank-delta { margin: 0 0 8px; padding: 8px 11px; border-radius: 10px; background: var(--page); border: 1px solid var(--border); font-size: 0.85rem; line-height: 1.4; color: var(--ink-2); }
+  .tank-delta[hidden] { display: none; }
+  .tank-delta .lbl { display: block; font-size: 0.68rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); }
+  .tank-delta b { color: var(--ink); }
+  .tank-delta.warn { background: color-mix(in srgb, #e0a800 14%, var(--page)); border-color: color-mix(in srgb, #e0a800 55%, transparent); }
+  .tank-delta.bad { background: color-mix(in srgb, #d03b3b 12%, var(--page)); border-color: color-mix(in srgb, #d03b3b 55%, transparent); }
   .tank-detail {
     font-size: 0.78rem;
     color: var(--ink-muted);
@@ -834,6 +841,7 @@
       <div class="tank-info">
         <div class="tank-status-line" id="tankStatusLine"></div>
         <div class="tank-eta" id="tankEta"></div>
+        <div class="tank-delta" id="tankDelta" hidden></div>
         <div class="tank-detail" id="tankDetail"></div>
       </div>
     </div>
@@ -1242,6 +1250,7 @@ window.rocStartPump = function (DATA) {
   var tankStatusLineEl = document.getElementById('tankStatusLine');
   var tankEtaEl = document.getElementById('tankEta');
   var tankDetailEl = document.getElementById('tankDetail');
+  var tankDeltaEl = document.getElementById('tankDelta');
   var poolModeToggleEl = document.getElementById('poolModeToggle');
   var poolScheduleCardEl = document.getElementById('poolScheduleCard');
   var scheduleCurrentEl = document.getElementById('scheduleCurrent');
@@ -1347,6 +1356,23 @@ window.rocStartPump = function (DATA) {
   // exists on the well dataset in the first place (the field is simply
   // absent on cfg.raw for Pool, so this naturally stays hidden there too,
   // same pattern as the Monthly pumpage card).
+  // Well vs pool line: well − pool = other use (tank full) or what goes into / out of the tank. Yellow from
+  // DELTA_WARN gal/day of other use or when draining, red from DELTA_BAD (same numbers as the Chemistry app's log window).
+  var DELTA_WARN = 100, DELTA_BAD = 200;
+  function setTankDelta(well, pool, full) {
+    if (well === null || well === undefined || pool === null || pool === undefined) { tankDeltaEl.hidden = true; return; }
+    var d = Math.round(well - pool), cls = '', what;
+    if (full) {
+      if (d < 0) what = '<b>' + d + '</b> gal/day: the pool drew on the tank’s stored water';
+      else { what = '<b>' + d + ' gal/day</b> other use (clubhouse, leaks)'; cls = d >= DELTA_BAD ? 'bad' : d >= DELTA_WARN ? 'warn' : ''; }
+    } else if (d >= 0) what = '<b>+' + d + ' gal/day</b> into the tank';
+    else { what = '<b>' + d + ' gal/day</b> out of the tank'; cls = 'warn'; }
+    tankDeltaEl.innerHTML = '<span class="lbl">Well vs pool</span>Well ' + Math.round(well) + ' − pool ' + Math.round(pool) + ' = ' + what +
+      (cls === 'bad' ? '<br>Much more than usual: check for a leak.' : '');
+    tankDeltaEl.className = 'tank-delta' + (cls ? ' ' + cls : '');
+    tankDeltaEl.hidden = false;
+  }
+
   function renderTankCard(cfg) {
     var ts = cfg.raw.tankStatus;
     if (!ts || !ts.available) { tankCardEl.style.display = 'none'; return; }
@@ -1370,31 +1396,29 @@ window.rocStartPump = function (DATA) {
         words = 'While full, the well only replaces what’s used: ' + Math.round(u.wellGpd) + ' gal/day over the last ' +
           fmtDays(u.days) + '. No pool readings for that time to compare with.';
       } else {
-        words = 'While full, the well only replaces what’s used. Over the last ' + fmtDays(u.days) + ': well ' +
-          Math.round(u.wellGpd) + ' gal/day, pool ' + Math.round(u.poolGpd) + ' → about ' + Math.max(0, Math.round(u.otherGpd)) +
-          ' gal/day of other use (clubhouse, leaks). Rain tops up the pool, which can make this read high.';
+        words = 'While full, the well only replaces what’s used (last ' + fmtDays(u.days) + '). Rain tops up the pool, which can make other use read high.';
       }
       tankEtaEl.textContent = words;
+      setTankDelta(u && u.poolGpd !== null ? u.wellGpd : null, u ? u.poolGpd : null, true);
       tankDetailEl.textContent = detail + (ts.lastOpen ? ' · last measured wide open: ' + Math.round(ts.lastOpen.gpd) +
         ' gal/day (' + fmtDateTime(new Date(ts.lastOpen.t)) + ', before it filled)' : '');
       return;
     }
 
     var netAbs = Math.abs(Math.round(ts.netGpd));
+    setTankDelta(ts.wellRateGpd, ts.poolRateGpd, false);
     // 2026-09-28: rates are real gallons over the last ts.rateDays days (see recentRateGpd_ in Code.gs)
     var rateWords = ts.rateDays ? 'at last-' + ts.rateDays + '-day rates' : 'at recent rates';
     if (ts.status === 'filling') {
       tankStatusLineEl.textContent = '▲ Filling';
       tankEtaEl.textContent = ts.daysTo === 0
         ? (ts.openRun ? 'Full at the last level check; the latest meter reading shows the well running wide open again.' : 'Already full.')
-        : '≈' + fmtDays(ts.daysTo) + ' to full ' + rateWords + ' (' + netAbs + ' gal/day net: ' +
-          Math.round(ts.wellRateGpd) + ' well − ' + Math.round(ts.poolRateGpd) + ' pool)';
+        : '≈' + fmtDays(ts.daysTo) + ' to full ' + rateWords + '.';
     } else if (ts.status === 'draining') {
       tankStatusLineEl.textContent = '▼ Draining';
       tankEtaEl.textContent = ts.daysTo === 0
         ? 'Already empty.'
-        : '≈' + fmtDays(ts.daysTo) + ' to empty ' + rateWords + ' (' + netAbs + ' gal/day net: ' +
-          Math.round(ts.poolRateGpd) + ' pool − ' + Math.round(ts.wellRateGpd) + ' well)';
+        : '≈' + fmtDays(ts.daysTo) + ' to empty ' + rateWords + '.';
     } else {
       tankStatusLineEl.textContent = '● Holding steady';
       tankEtaEl.textContent = 'Well and pool rates are close enough (net ' + netAbs + ' gal/day) that filling/draining isn’t predictable right now.';
