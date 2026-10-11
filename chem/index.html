@@ -431,10 +431,14 @@ dialog .hint{font-size:12px;color:var(--muted);margin-top:2px}
 .fdrunh{margin:10px 4px 0;font-size:13.5px;line-height:1.6;color:var(--ink2)}
 .fdrunh .lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .fdrunh small{color:var(--muted);font-size:12.5px}
-#acidDlg .aftank{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--ink2)}
-#acidDlg .aftank b{color:var(--ink);font-weight:600}
-#acidDlg .afgauge{flex:0 0 22px;height:34px;border-radius:5px;background:color-mix(in srgb,var(--accent) 16%,var(--card));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);position:relative;overflow:hidden}
-#acidDlg .afgauge i{position:absolute;left:0;right:0;bottom:0;background:var(--accent);opacity:.8}
+.fdtank{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:14px;color:var(--ink2)}
+.fdtank b{color:var(--ink);font-weight:600}
+.fdgauge{flex:0 0 auto;display:block;color:var(--accent)}
+.fdgauge .sh{fill:color-mix(in srgb,var(--accent) 14%,var(--card));stroke:color-mix(in srgb,var(--accent) 50%,transparent);stroke-width:1.5}
+.fdgauge .lid{fill:color-mix(in srgb,var(--accent) 50%,var(--card))}
+.fdgauge .lq{fill:var(--accent);opacity:.8}
+.fdgauge .tb{fill:var(--accent);opacity:.85}
+.fdgauge .tb.gone{fill:none;stroke:color-mix(in srgb,var(--accent) 30%,transparent);stroke-width:1;opacity:1}
 #acidDlg .afnote{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.35}
 #acidDlg .afstep{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center}
 #acidDlg .afpm{height:52px;border-radius:12px;border:0;background:var(--card);color:var(--accent);font:inherit;font-size:28px;font-weight:500;line-height:1;cursor:pointer;padding:0}
@@ -4862,8 +4866,21 @@ function feedCalc(){
   el.innerHTML = '<div class="fdbig"><b>' + (days ? r1(days) : '–') + '</b><span>days per full load</span></div>' +
     '<div class="fdstats"><span><b>' + fmtNum(Math.round(lb * 100) / 100) + ' lb</b> chlorine a day</span><span><b>FC +' + r1(ppm) + '</b> a day</span></div>' +
     '<div class="fdday" role="img" aria-label="How much it feeds through the day">' + parts.join('') + '</div><div class="fdticks">' + ticks.join('') + '</div>' +
-    '<p class="fdnote' + (rated || f.days > 0 ? '' : ' warn') + '">' + (f.days > 0 ? 'Using your “lasts ' + fmtNum(f.days) + ' days”. The maker\'s table alone says about ' + (tableDays ? r1(tableDays) : '–') + '.'
+    feedTankHtml(f, lb) + '<p class="fdnote' + (rated || f.days > 0 ? '' : ' warn') + '">' + (f.days > 0 ? 'Using your “lasts ' + fmtNum(f.days) + ' days”. The maker\'s table alone says about ' + (tableDays ? r1(tableDays) : '–') + '.'
       : rated ? 'From the maker\'s table (the manual that came with the feeder).' : 'Letter ' + esc(f.letter) + ' isn\'t rated at this low a flow, so this borrows the nearest rated numbers. Treat it as a guess.') + '</p>';
+}
+// the feeder now: what is left of the newest load at the saved settings, days left at the settings in the window
+function feedTankHtml(f, lb){
+  var D = DATA.feeder; if (!D || !D.lastFill) return '';
+  var filled = '<br><small>Filled ' + esc(trkDay(dayOfMs(D.lastFill))) + '</small></span></div>';
+  if (D.offNow && isNum(D.waitShare)) return '<div class="fdtank">' + feedGauge('cal', D.waitShare, f.tabs) + '<span><b>Off: about ' + Math.round(D.waitShare * 100) + '% left</b>, waiting' + filled;
+  if (!D.emptyAt || !(D.fullLb > 0)) return '';
+  var now = Date.now(), left = D.emptyAt > now && D.lbDay > 0 ? (D.emptyAt - now) / DAYMS * D.lbDay : 0, share = Math.max(0, Math.min(1, left / D.fullLb));
+  var dl = left > 0 && lb > 0 ? left / lb : null, txt;
+  if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(D.emptyAt)));
+  else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>';
+  else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
+  return '<div class="fdtank">' + feedGauge('cal', share, f.tabs) + '<span>' + txt + filled;
 }
 function feedWire(){
   var dlg = $('feedDlg');
@@ -4957,6 +4974,21 @@ function acidRead(){
   log.sort(function(a, b){ return a.ms - b.ms; });
   return {gpd: +$('afGpd').value, acid: +$('afAcid').value, water: +$('afWater').value, log: log, pct: pct, changed: changed};
 }
+/* little feeder pictures for the "left now" row (2026-10-11): acid = the solution tank with its cap, filled to the share
+   left; cal-hypo = the CCH Endurance tube with its lid, one disc per tablet in a full load, the ones used up as outlines */
+function feedGauge(kind, share, tabs){
+  share = Math.max(0, Math.min(1, share || 0));
+  if (kind === 'acid') {
+    var top = 7, bot = 41, ly = bot - (bot - top) * share;
+    return '<svg class="fdgauge" width="30" height="44" viewBox="0 0 30 44" aria-hidden="true"><defs><clipPath id="fgA"><rect x="2" y="6" width="26" height="36" rx="5"/></clipPath></defs>' +
+      '<rect class="lid" x="10" y="1" width="10" height="5" rx="1.5"/><rect class="sh" x="2" y="6" width="26" height="36" rx="5"/>' +
+      '<rect class="lq" x="0" y="' + ly.toFixed(1) + '" width="30" height="' + (44 - ly).toFixed(1) + '" clip-path="url(#fgA)"/></svg>';
+  }
+  var n = Math.max(1, Math.min(30, Math.round(tabs) || 10)), inner = 36, gap = n > 14 ? 1 : 1.5, th = (inner - gap * (n - 1)) / n, lit = Math.round(share * n), h = '';
+  for (var i = 0; i < n; i++) { var y = 44 - 3 - (i + 1) * th - i * gap; h += '<rect class="tb' + (i < lit ? '' : ' gone') + '" x="6" y="' + y.toFixed(2) + '" width="14" height="' + th.toFixed(2) + '" rx="' + Math.min(2, th / 2).toFixed(2) + '"/>'; }
+  return '<svg class="fdgauge" width="26" height="46" viewBox="0 0 26 46" aria-hidden="true"><rect class="lid" x="1" y="0" width="24" height="5" rx="2"/>' +
+    '<rect class="sh" x="3" y="4" width="20" height="40" rx="3"/>' + h + '</svg>';
+}
 function acidCalc(){
   if (!DATA || !DATA.acidFeeder) return;
   var A = DATA.acidFeeder, f = acidRead(), el = $('afRes');
@@ -4978,14 +5010,14 @@ function acidCalc(){
     '<div class="popstats"><span><b>' + r2(acidDay) + ' gal</b> acid a day</span><span><b>TA −' + r1(ta) + '</b> a day</span><span><b>' + r2(mix) + ' gal</b> mix a day</span></div>';
   // the tank now: what is left of the newest fill at the saved setting, then at this one
   if (A.offNow && A.lastFill && isNum(A.waitShare)) {
-    h += '<div class="aftank"><span class="afgauge" aria-hidden="true"><i style="height:' + Math.round(A.waitShare * 100) + '%"></i></span><span><b>Off: about ' + Math.round(A.waitShare * 100) + '% left</b>, waiting<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
+    h += '<div class="fdtank">' + feedGauge('acid', A.waitShare) + '<span><b>Off: about ' + Math.round(A.waitShare * 100) + '% left</b>, waiting<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
   } else if (A.emptyAt && A.lastFill) {
     var now = Date.now(), left = A.emptyAt > now && A.acidDay > 0 ? (A.emptyAt - now) / DAYMS * A.acidDay : 0, share = Math.max(0, Math.min(1, left / A.set.acid));
     var dl = left > 0 && acidDay > 0 ? left / acidDay : null, txt;
     if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(A.emptyAt)));
     else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>, not emptying at 0%';
     else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
-    h += '<div class="aftank"><span class="afgauge" aria-hidden="true"><i style="height:' + Math.round(share * 100) + '%"></i></span><span>' + txt + '<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
+    h += '<div class="fdtank">' + feedGauge('acid', share) + '<span>' + txt + '<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
   }
   h += '<p class="afnote">At ' + f.pct + '% the pump ' + onTxt + '. From the maker\'s chart: ' + fmtNum(f.gpd) + ' gal a day × ' + f.pct + '%' + (f.water > 0 ? ', ' + fmtNum(f.acid) + ' of every ' + fmtNum(f.acid + f.water) + ' gal is acid' : '') + '.</p>';
   el.innerHTML = h;
