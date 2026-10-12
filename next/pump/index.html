@@ -400,6 +400,7 @@
     background: var(--accent);
     border-radius: 0 0 6px 6px;
   }
+  .tank-is-full .tank-gauge-fill { background: var(--tank-full-dot); }
   .tank-gauge-pct {
     font-size: 0.88rem;
     font-weight: 650;
@@ -415,6 +416,13 @@
     color: var(--ink-2);
     margin-bottom: 6px;
   }
+  /* well vs pool at a glance (2026-10-10): the gap is other use when full, into / out of the tank otherwise */
+  .tank-delta { margin: 0 0 8px; padding: 8px 11px; border-radius: 10px; background: var(--page); border: 1px solid var(--border); font-size: 0.85rem; line-height: 1.4; color: var(--ink-2); }
+  .tank-delta[hidden] { display: none; }
+  .tank-delta .lbl { display: block; font-size: 0.68rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); }
+  .tank-delta b { color: var(--ink); }
+  .tank-delta.warn { background: color-mix(in srgb, #e0a800 14%, var(--page)); border-color: color-mix(in srgb, #e0a800 55%, transparent); }
+  .tank-delta.bad { background: color-mix(in srgb, #d03b3b 12%, var(--page)); border-color: color-mix(in srgb, #d03b3b 55%, transparent); }
   .tank-detail {
     font-size: 0.78rem;
     color: var(--ink-muted);
@@ -446,6 +454,7 @@
   .trend-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 5 3; }
   .raw-dot { fill: var(--raw-dot); }
   .tank-full-dot { fill: var(--tank-full-dot); }
+  .tank-full-line { fill: none; stroke: var(--tank-full-dot); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .event-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 3 3; }
   .gap-mask { fill: var(--surface); }
   .gap-cut { stroke: var(--ink-muted); stroke-width: 1.5; stroke-linecap: round; }
@@ -832,6 +841,7 @@
       <div class="tank-info">
         <div class="tank-status-line" id="tankStatusLine"></div>
         <div class="tank-eta" id="tankEta"></div>
+        <div class="tank-delta" id="tankDelta" hidden></div>
         <div class="tank-detail" id="tankDetail"></div>
       </div>
     </div>
@@ -846,7 +856,7 @@
         <span class="legend-item" id="legendEventItem"><span class="legend-line"></span><span id="legendEventLabel"></span></span>
         <span class="legend-item" id="legendWellItem" style="display:none"><span class="legend-swatch" style="background:var(--accent-well)"></span>Well</span>
         <span class="legend-item" id="legendPoolItem" style="display:none"><span class="legend-swatch"></span>Pool</span>
-        <span class="legend-item" id="legendTankFullItem" style="display:none"><span class="legend-dot" style="background:var(--tank-full-dot)"></span>Tank full reading</span>
+        <span class="legend-item" id="legendTankFullItem" style="display:none"><span class="legend-dot" style="background:var(--tank-full-dot)"></span>Tank full (use, not well capacity)</span>
       </div>
       <div class="mode-toggle" id="poolModeToggle" style="display:none">
         <button class="mode-btn" data-mode="adjusted" type="button">Adjusted</button>
@@ -919,7 +929,7 @@
 // Draws the dashboard; called once, when unlock() returns the data after sign-in (see the sign-in script).
 window.rocStartPump = function (DATA) {
 
-  var WELL_DESC = 'Gallons per day pumped from the community well. Dots are individual readings; the brown line is the trend (same color as the well line on the Combined view). Details on filtering below the chart.';
+  var WELL_DESC = 'Gallons per day pumped from the community well. Dots are individual readings; the brown line is the trend (same color as the well line on the Combined view). Green is the tank-full readings: then the well only replaces what is used. Details on filtering below the chart.';
 
   var POOL_DESC = 'Gallons per day of water added to the pool. Dots are individual readings; the blue line is the trend. Details on filtering below the chart.';
 
@@ -1028,6 +1038,7 @@ window.rocStartPump = function (DATA) {
   // so the single set of interaction listeners below always sees current data) ----------
   var points, trend, events, Y_MAX, Y_TICKS, unit, trendColor;
   var majorBands, gapBands, pointXs, trendXs;
+  var chartTankFull = [], tankFullXs = []; // tank-full readings on the single-view chart (well), for hover
   var currentView = 'well';
   var currentRange = 'all';
 
@@ -1073,7 +1084,7 @@ window.rocStartPump = function (DATA) {
   }
 
   // ---------- Combined-view state (populated by renderCombined) ----------
-  var combinedWellTrend = [], combinedPoolTrend = [], combinedMergedXs = [];
+  var combinedWellTrend = [], combinedPoolTrend = [], combinedMergedXs = [], combinedTankFull = [];
   var combinedTMin = 0, combinedTMax = 1, combinedCX = null, combinedCY = null;
   var hoverDotWell, hoverDotPool;
 
@@ -1126,6 +1137,11 @@ window.rocStartPump = function (DATA) {
     if (!p || p.x < M.left || p.x > W - M.right || !pointXs.length) { hideHover(); return; }
     var idx = nearestIndex(pointXs, p.x);
     var rawPt = points[idx];
+    // a tank-full reading closer to the pointer than any regular reading gets its own tooltip (well vs pool)
+    if (tankFullXs.length) {
+      var fi = nearestIndex(tankFullXs, p.x);
+      if (Math.abs(tankFullXs[fi] - p.x) < Math.abs(pointXs[idx] - p.x)) { showTankFullHover(chartTankFull[fi], tankFullXs[fi]); return; }
+    }
     var trendIdx = nearestIndex(trendXs, p.x);
     var trendPt = trend[trendIdx];
 
@@ -1177,6 +1193,22 @@ window.rocStartPump = function (DATA) {
     tooltip.classList.add('show');
   }
 
+  function showTankFullHover(fp, x) {
+    crosshair.setAttribute('x1', x);
+    crosshair.setAttribute('x2', x);
+    crosshair.setAttribute('opacity', 1);
+    hoverDotTrend.setAttribute('opacity', 0);
+    tooltip.innerHTML = '';
+    var dateEl = document.createElement('div'); dateEl.className = 't-date'; dateEl.textContent = fmtDate(fp.t);
+    tooltip.appendChild(dateEl);
+    addTankFullRows(fp, unit);
+    var shellRect = chartShell.getBoundingClientRect();
+    var svgRect = svg.getBoundingClientRect();
+    tooltip.style.left = (svgRect.left - shellRect.left + (x / W) * svgRect.width) + 'px';
+    tooltip.style.top = (svgRect.top - shellRect.top + (yScale(Math.min(fp.gpd, Y_MAX)) / H) * svgRect.height) + 'px';
+    tooltip.classList.add('show');
+  }
+
   function hideHover() {
     if (crosshair) crosshair.setAttribute('opacity', 0);
     if (hoverDotTrend) hoverDotTrend.setAttribute('opacity', 0);
@@ -1218,6 +1250,7 @@ window.rocStartPump = function (DATA) {
   var tankStatusLineEl = document.getElementById('tankStatusLine');
   var tankEtaEl = document.getElementById('tankEta');
   var tankDetailEl = document.getElementById('tankDetail');
+  var tankDeltaEl = document.getElementById('tankDelta');
   var poolModeToggleEl = document.getElementById('poolModeToggle');
   var poolScheduleCardEl = document.getElementById('poolScheduleCard');
   var scheduleCurrentEl = document.getElementById('scheduleCurrent');
@@ -1323,6 +1356,23 @@ window.rocStartPump = function (DATA) {
   // exists on the well dataset in the first place (the field is simply
   // absent on cfg.raw for Pool, so this naturally stays hidden there too,
   // same pattern as the Monthly pumpage card).
+  // Well vs pool line: well − pool = other use (tank full) or what goes into / out of the tank. Yellow from
+  // DELTA_WARN gal/day of other use or when draining, red from DELTA_BAD (same numbers as the Chemistry app's log window).
+  var DELTA_WARN = 100, DELTA_BAD = 200;
+  function setTankDelta(well, pool, full) {
+    if (well === null || well === undefined || pool === null || pool === undefined) { tankDeltaEl.hidden = true; return; }
+    var d = Math.round(well - pool), cls = '', what;
+    if (full) {
+      if (d < 0) what = '<b>' + d + '</b> gal/day: the pool drew on the tank’s stored water';
+      else { what = '<b>' + d + ' gal/day</b> other use (clubhouse, leaks)'; cls = d >= DELTA_BAD ? 'bad' : d >= DELTA_WARN ? 'warn' : ''; }
+    } else if (d >= 0) what = '<b>+' + d + ' gal/day</b> into the tank';
+    else { what = '<b>' + d + ' gal/day</b> out of the tank'; cls = 'warn'; }
+    tankDeltaEl.innerHTML = '<span class="lbl">Well vs pool</span>Well ' + Math.round(well) + ' − pool ' + Math.round(pool) + ' = ' + what +
+      (cls === 'bad' ? '<br>Much more than usual: check for a leak.' : '');
+    tankDeltaEl.className = 'tank-delta' + (cls ? ' ' + cls : '');
+    tankDeltaEl.hidden = false;
+  }
+
   function renderTankCard(cfg) {
     var ts = cfg.raw.tankStatus;
     if (!ts || !ts.available) { tankCardEl.style.display = 'none'; return; }
@@ -1331,29 +1381,99 @@ window.rocStartPump = function (DATA) {
     var pct = ts.percentFull;
     tankGaugeFillEl.style.height = Math.max(0, Math.min(100, pct)) + '%';
     tankGaugePctEl.textContent = Math.round(pct) + '%';
+    tankCardEl.classList.toggle('tank-is-full', ts.status === 'full');
+    var detail = Math.round(ts.levelGal).toLocaleString() + ' of ' + Math.round(ts.capacityGal).toLocaleString() +
+      ' gal · last checked ' + fmtDateTime(new Date(ts.lastKnownT));
+
+    // 2026-10-09: tank full = a different mode. The well only puts back what is used, so its readings say nothing
+    // about what it can pump; instead they show total use, and well minus pool = other use (clubhouse, leaks).
+    if (ts.status === 'full') {
+      tankStatusLineEl.textContent = '● Full' + (ts.fullSinceT ? ' since ' + fmtDateTime(new Date(ts.fullSinceT)) : '');
+      var u = ts.use, words;
+      if (!u) {
+        words = 'While full, the well only replaces what’s used. The use comparison starts with the next meter reading.';
+      } else if (u.poolGpd === null) {
+        words = 'While full, the well only replaces what’s used: ' + Math.round(u.wellGpd) + ' gal/day over the last ' +
+          fmtDays(u.days) + '. No pool readings for that time to compare with.';
+      } else {
+        words = 'While full, the well only replaces what’s used (last ' + fmtDays(u.days) + '). Rain tops up the pool, which can make other use read high.';
+      }
+      tankEtaEl.textContent = words;
+      setTankDelta(u && u.poolGpd !== null ? u.wellGpd : null, u ? u.poolGpd : null, true);
+      tankDetailEl.textContent = detail + (ts.lastOpen ? ' · last measured wide open: ' + Math.round(ts.lastOpen.gpd) +
+        ' gal/day (' + fmtDateTime(new Date(ts.lastOpen.t)) + ', before it filled)' : '');
+      return;
+    }
 
     var netAbs = Math.abs(Math.round(ts.netGpd));
+    setTankDelta(ts.wellRateGpd, ts.poolRateGpd, false);
     // 2026-09-28: rates are real gallons over the last ts.rateDays days (see recentRateGpd_ in Code.gs)
     var rateWords = ts.rateDays ? 'at last-' + ts.rateDays + '-day rates' : 'at recent rates';
     if (ts.status === 'filling') {
       tankStatusLineEl.textContent = '▲ Filling';
       tankEtaEl.textContent = ts.daysTo === 0
-        ? 'Already full.'
-        : '≈' + fmtDays(ts.daysTo) + ' to full ' + rateWords + ' (' + netAbs + ' gal/day net: ' +
-          Math.round(ts.wellRateGpd) + ' well − ' + Math.round(ts.poolRateGpd) + ' pool)';
+        ? (ts.openRun ? 'Full at the last level check; the latest meter reading shows the well running wide open again.' : 'Already full.')
+        : '≈' + fmtDays(ts.daysTo) + ' to full ' + rateWords + '.';
     } else if (ts.status === 'draining') {
       tankStatusLineEl.textContent = '▼ Draining';
       tankEtaEl.textContent = ts.daysTo === 0
         ? 'Already empty.'
-        : '≈' + fmtDays(ts.daysTo) + ' to empty ' + rateWords + ' (' + netAbs + ' gal/day net: ' +
-          Math.round(ts.poolRateGpd) + ' pool − ' + Math.round(ts.wellRateGpd) + ' well)';
+        : '≈' + fmtDays(ts.daysTo) + ' to empty ' + rateWords + '.';
     } else {
       tankStatusLineEl.textContent = '● Holding steady';
       tankEtaEl.textContent = 'Well and pool rates are close enough (net ' + netAbs + ' gal/day) that filling/draining isn’t predictable right now.';
     }
 
-    tankDetailEl.textContent = Math.round(ts.levelGal).toLocaleString() + ' gal remaining of ' +
-      Math.round(ts.capacityGal).toLocaleString() + ' (last known ' + fmtDateTime(new Date(ts.lastKnownT)) + ')';
+    tankDetailEl.textContent = detail;
+  }
+
+  // Tank-full readings (well): total use while full, with the pool's use and other use (well - pool) for the same time.
+  function tankFullPt(p) { return { t: new Date(p.t), gpd: p.gpd, run: p.run, filled: p.filled, poolGpd: p.poolGpd, otherGpd: p.otherGpd }; }
+
+  // The green tank-full line: joins readings in the same unbroken full stretch (`run`), never across a stretch
+  // where the tank wasn't full. The reading when the tank filled is part wide open, so it stays a dot off the line.
+  function drawTankFullLine(pts, xf, yf, yMax) {
+    var runs = [];
+    pts.forEach(function (p) {
+      if (p.filled || p.run === undefined) return; // run is missing only if the server is older than this page
+      var r = runs[runs.length - 1];
+      if (!r || r.run !== p.run) runs.push({ run: p.run, pts: [p] }); else r.pts.push(p);
+    });
+    runs.forEach(function (r) {
+      if (r.pts.length < 2) return;
+      var d = r.pts.map(function (p, i) {
+        return (i === 0 ? 'M ' : 'L ') + xf(p.t.getTime()) + ' ' + yf(Math.min(p.gpd, yMax));
+      }).join(' ');
+      svg.appendChild(el('path', { d: d, class: 'tank-full-line' }));
+    });
+  }
+
+  // Tooltip rows for a tank-full reading.
+  function addTankFullRows(p, unitWord) {
+    function row(color, text) {
+      var r = document.createElement('div'); r.className = 't-row';
+      var k = document.createElement('span'); k.className = 't-key'; k.style.background = color;
+      var v = document.createElement('span'); v.className = 't-val'; v.textContent = text;
+      r.appendChild(k); r.appendChild(v); tooltip.appendChild(r);
+    }
+    if (p.filled) {
+      row('var(--tank-full-dot)', fmtGpd(p.gpd, unitWord) + ' well, tank filled up');
+      var f = document.createElement('div'); f.className = 't-note';
+      f.textContent = 'The tank filled part way through this stretch, so it mixes wide-open pumping with use; not compared with the pool.';
+      tooltip.appendChild(f);
+      return;
+    }
+    row('var(--tank-full-dot)', fmtGpd(p.gpd, unitWord) + ' well, tank full');
+    if (p.poolGpd !== null && p.poolGpd !== undefined) {
+      row('var(--accent)', fmtGpd(p.poolGpd, unitWord) + ' pool over the same hours');
+      var n = document.createElement('div'); n.className = 't-note';
+      // the tank buffers: the pool can draw down stored water before the well switches back on, so one reading can
+      // show the pool ahead of the well - it evens out over a few readings (the tank card uses several days)
+      n.textContent = p.otherGpd < 0
+        ? 'Pool used more than the well pumped here: it drew on the tank’s stored water before the well switched on. Evens out over a few readings.'
+        : 'Other use (clubhouse, leaks): ' + fmtGpd(p.otherGpd, unitWord);
+      tooltip.appendChild(n);
+    }
   }
 
   function renderView(key) {
@@ -1381,7 +1501,7 @@ window.rocStartPump = function (DATA) {
     // write-back, since re-stringifying a Date risks a timezone round-trip
     // mismatch against what Code.gs saved.
     var allEvents = cfg.raw.events.map(function (e) { return { t: new Date(e.t), tKey: e.t, label: e.label }; });
-    var allTankFull = (cfg.raw.excludedLow || []).map(function (p) { return { t: new Date(p.t), gpd: p.gpd }; });
+    var allTankFull = (cfg.raw.excludedLow || []).map(tankFullPt);
 
     // Range-filtered data - what's actually drawn on the chart (dots,
     // trend line, event markers, tank-full dots) and what the hover
@@ -1608,8 +1728,9 @@ window.rocStartPump = function (DATA) {
       var msg = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'tick-label' });
       msg.textContent = allPoints.length ? 'No readings in this time range.' : 'No data yet.';
       svg.appendChild(msg);
-      pointXs = []; trendXs = []; majorBands = []; gapBands = [];
+      pointXs = []; trendXs = []; majorBands = []; gapBands = []; chartTankFull = []; tankFullXs = [];
     } else {
+      chartTankFull = []; tankFullXs = [];
       var bySeg = {};
       points.forEach(function (p) { (bySeg[p.segIndex] = bySeg[p.segIndex] || []).push(p); });
       var segIndices = Object.keys(bySeg).map(Number).sort(function (a, b) { return a - b; });
@@ -1618,6 +1739,19 @@ window.rocStartPump = function (DATA) {
       majorBands = majorSegIndices.map(function (si) {
         var pts = bySeg[si];
         return { segIndex: si, tStart: pts[0].t.getTime(), tEnd: pts[pts.length - 1].t.getTime() };
+      });
+      // tank-full readings (no segIndex of their own) widen the stretch they belong to - the one they fall in, or the
+      // latest one before them if within 30 days - so a tank full since the last wide-open reading still gets its own
+      // room on the axis instead of piling up on the right edge (2026-10-09)
+      tankFullPts.forEach(function (fp) {
+        var ft = fp.t.getTime(), home = null;
+        majorBands.forEach(function (b) { if (!home && ft >= b.tStart && ft <= b.tEnd) home = b; });
+        majorBands.forEach(function (b) { if (!home && ft > b.tEnd && ft - b.tEnd <= 30 * DAY_MS) home = b; });
+        majorBands.forEach(function (b) { if (!home && ft < b.tStart && b.tStart - ft <= 30 * DAY_MS) home = b; });
+        if (home) { home.tStart = Math.min(home.tStart, ft); home.tEnd = Math.max(home.tEnd, ft); }
+      });
+      majorBands.forEach(function (b, i) {   // never let a widened stretch run into the next one
+        if (i > 0 && b.tStart < majorBands[i - 1].tEnd) b.tStart = majorBands[i - 1].tEnd;
       });
       gapBands = [];
       for (var gi = 0; gi < majorBands.length - 1; gi++) {
@@ -1756,7 +1890,10 @@ window.rocStartPump = function (DATA) {
         var y = offScale ? M.top + 3 : yScale(p.gpd);
         tankFullLayer.appendChild(el('circle', { cx: x, cy: y, r: 2.6, class: 'tank-full-dot' }));
       });
+      drawTankFullLine(tankFullPts, xScale, yScale, Y_MAX);
       svg.appendChild(tankFullLayer);
+      chartTankFull = tankFullPts;
+      tankFullXs = tankFullPts.map(function (p) { return xScale(p.t.getTime()); });
 
       // trend line, split at true logging gaps
       var segments = [];
@@ -1903,7 +2040,7 @@ window.rocStartPump = function (DATA) {
     if (key === 'well') {
       var exLen2 = cfg.raw.excludedLow.length;
       footer.innerHTML =
-        '<strong>Reading this chart:</strong> each gallons-per-day figure is extrapolated from the meter delta between two readings, so a short gap between readings can swing the raw number — ' + clippedCount + ' reading' + (clippedCount === 1 ? '' : 's') + ' above ' + Y_MAX + ' gpd ' + (clippedCount === 1 ? 'is' : 'are') + ' clipped to the top of the chart (▲, real value in the tooltip). Those are also left out of the trend line: each one follows a stretch where the well had been resting (idle or barely used), so the water table had time to recover and the next reading catches an elevated, temporary rate rather than sustained output. Separately, ' + exLen2 + ' readings are tank-full artifacts — either under ' + cfg.raw.lowCut + ' gpd outright, or logged with a Tank Level reading at capacity on that same row even if the gpd itself wasn&rsquo;t low — shown on the chart as light-green dots, but left out of the trend line. The trend line is an exponentially weighted average of steady-use readings (the most recent reading counts most, older ones less), and it restarts fresh right after a real equipment change — a pump lowered, replaced, or swapped in — instead of blending old and new readings together; routine pump-saver setting tweaks on already-installed equipment don&rsquo;t reset it. So after a real change the trend catches up in a reading or two rather than trailing behind for a week or more. Numbered markers above the chart, and the trend&rsquo;s reset points, are the same real equipment changes; plain pump-saver setting tweaks are left off the chart itself to avoid crowding the axis, but every logged change, settings included, is still dated in the list below. The "//" breaks mark stretches of 30+ days with no logging at all, compressed to a fixed width regardless of their real length so the surrounding bursts of real readings get more room on screen; shorter gaps are drawn as a normal connecting line at true scale. The axis labels either side of a break are the true dates, just not evenly spaced against each other. The time-range toggle above the chart (All time / YTD / Last 30 days) only changes what&rsquo;s drawn here — the rest of this page always reflects the full history. ' + cfg.sourceLine;
+        '<strong>Reading this chart:</strong> each gallons-per-day figure is extrapolated from the meter delta between two readings, so a short gap between readings can swing the raw number — ' + clippedCount + ' reading' + (clippedCount === 1 ? '' : 's') + ' above ' + Y_MAX + ' gpd ' + (clippedCount === 1 ? 'is' : 'are') + ' clipped to the top of the chart (▲, real value in the tooltip). Those are also left out of the trend line: each one follows a stretch where the well had been resting (idle or barely used), so the water table had time to recover and the next reading catches an elevated, temporary rate rather than sustained output. Separately, ' + exLen2 + ' readings were taken with the tank full — either under ' + cfg.raw.lowCut + ' gpd outright, or logged with a Tank Level reading at capacity on that same row even if the gpd itself wasn&rsquo;t low. With the tank full the well only replaces what is used, so those readings show total use (pool + clubhouse + leaks), not what the well can pump: they are the green dots, joined by a green line within each unbroken full stretch, and left out of the brown trend line. Hover one to see the pool&rsquo;s use for the same time and the difference (other use); the Combined view shows the green line beside the pool line. The trend line is an exponentially weighted average of steady-use readings (the most recent reading counts most, older ones less), and it restarts fresh right after a real equipment change — a pump lowered, replaced, or swapped in — instead of blending old and new readings together; routine pump-saver setting tweaks on already-installed equipment don&rsquo;t reset it. So after a real change the trend catches up in a reading or two rather than trailing behind for a week or more. Numbered markers above the chart, and the trend&rsquo;s reset points, are the same real equipment changes; plain pump-saver setting tweaks are left off the chart itself to avoid crowding the axis, but every logged change, settings included, is still dated in the list below. The "//" breaks mark stretches of 30+ days with no logging at all, compressed to a fixed width regardless of their real length so the surrounding bursts of real readings get more room on screen; shorter gaps are drawn as a normal connecting line at true scale. The axis labels either side of a break are the true dates, just not evenly spaced against each other. The time-range toggle above the chart (All time / YTD / Last 30 days) only changes what&rsquo;s drawn here — the rest of this page always reflects the full history. ' + cfg.sourceLine;
     } else {
       var s = cfg.raw.schedule || { startHour: 6, intervalHours: 6 };
       var perDayTxt = Math.round(24 / s.intervalHours);
@@ -1929,7 +2066,7 @@ window.rocStartPump = function (DATA) {
       b.classList.toggle('active', b.getAttribute('data-view') === 'combined');
     });
     pageTitleEl.textContent = 'Well & Pool Comparison';
-    pageDescEl.innerHTML = 'The same two trend lines on one shared time axis and gallons-per-day scale, so you can see how well output and pool top-offs move relative to each other. Well in brown, pool in blue.';
+    pageDescEl.innerHTML = 'The same two trend lines on one shared time axis and gallons-per-day scale, so you can see how well output and pool top-offs move relative to each other. Well in brown, pool in blue. Green is the well while the tank was full: then it only replaces what is used, so the gap between green and blue is other use (clubhouse, leaks).';
     chartCardTitleEl.textContent = 'Gallons per day, well vs. pool';
     eventsCardEl.style.display = 'none';
     monthlyCardEl.style.display = 'none';
@@ -1939,7 +2076,7 @@ window.rocStartPump = function (DATA) {
     legendTrendItemEl.style.display = 'none';
     legendWellItemEl.style.display = '';
     legendPoolItemEl.style.display = '';
-    legendTankFullItemEl.style.display = 'none';
+    legendTankFullItemEl.style.display = (VIEWS.well.raw.excludedLow || []).length ? '' : 'none';
     rangeToggleEl.style.display = '';
     document.querySelectorAll('.range-btn').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-range') === currentRange);
@@ -1960,12 +2097,13 @@ window.rocStartPump = function (DATA) {
     var bounds = rangeBounds(currentRange);
     var wellTrend = filterByRange(VIEWS.well.raw.trend.map(function (p) { return { t: new Date(p.t), gpd: p.gpd, segIndex: p.segIndex }; }), bounds);
     var poolTrend = filterByRange(poolTrendSrc.map(function (p) { return { t: new Date(p.t), gpd: p.gpd, segIndex: p.segIndex }; }), bounds);
+    var tankFull = filterByRange((VIEWS.well.raw.excludedLow || []).map(tankFullPt), bounds);
 
     if (!wellTrend.length && !poolTrend.length) {
       var msg = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'tick-label' });
       msg.textContent = 'No data yet.';
       svg.appendChild(msg);
-      combinedWellTrend = []; combinedPoolTrend = []; combinedMergedXs = [];
+      combinedWellTrend = []; combinedPoolTrend = []; combinedMergedXs = []; combinedTankFull = [];
     } else {
       // Shared axis: under a range filter, anchor to the range's own
       // start/end (not just whichever timestamps happen to survive in each
@@ -1980,7 +2118,7 @@ window.rocStartPump = function (DATA) {
         var allTimes = wellTrend.concat(poolTrend).map(function (p) { return p.t.getTime(); });
         tMin = Math.min.apply(null, allTimes); tMax = Math.max.apply(null, allTimes);
       }
-      var allVals = wellTrend.concat(poolTrend).map(function (p) { return p.gpd; });
+      var allVals = wellTrend.concat(poolTrend, tankFull).map(function (p) { return p.gpd; });
       var maxVal = Math.max.apply(null, allVals.concat([1]));
       var niceMax = Math.max(50, Math.ceil((maxVal * 1.1) / 50) * 50);
       var cTicks = [0, 1, 2, 3, 4].map(function (i) { return Math.round(niceMax * i / 4); });
@@ -2038,12 +2176,18 @@ window.rocStartPump = function (DATA) {
       }
       drawTrendLine(wellTrend, 'var(--accent-well)');
       drawTrendLine(poolTrend, 'var(--accent)');
+      // tank-full readings (well): total use while full - the gap down to the pool line is other use
+      drawTankFullLine(tankFull, combinedCX, combinedCY, niceMax);
+      tankFull.forEach(function (p) {
+        svg.appendChild(el('circle', { cx: combinedCX(p.t.getTime()), cy: combinedCY(p.gpd), r: 2.6, class: 'tank-full-dot' }));
+      });
 
       svg.appendChild(el('line', { x1: M.left, x2: M.left, y1: M.top, y2: H - M.bottom, class: 'axis-line' }));
 
       combinedWellTrend = wellTrend;
       combinedPoolTrend = poolTrend;
-      combinedMergedXs = wellTrend.concat(poolTrend)
+      combinedTankFull = tankFull;
+      combinedMergedXs = wellTrend.concat(poolTrend, tankFull)
         .map(function (p) { return combinedCX(p.t.getTime()); })
         .sort(function (a, b) { return a - b; });
     }
@@ -2123,6 +2267,15 @@ window.rocStartPump = function (DATA) {
       tooltip.appendChild(row2);
     } else {
       hoverDotPool.setAttribute('opacity', 0);
+    }
+
+    // a tank-full reading right under the pointer: show it with the pool and other use for that time
+    var fullPt = nearestPt(combinedTankFull);
+    if (fullPt && Math.abs(combinedCX(fullPt.t.getTime()) - x) < 1) {
+      var fullHead = document.createElement('div'); fullHead.className = 't-note';
+      fullHead.textContent = 'Tank-full reading, ' + fmtDate(fullPt.t) + ':';
+      tooltip.appendChild(fullHead);
+      addTankFullRows(fullPt, 'gpd');
     }
 
     var shellRect = chartShell.getBoundingClientRect();
