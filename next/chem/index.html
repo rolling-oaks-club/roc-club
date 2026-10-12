@@ -8,7 +8,7 @@
 <script>
 // Server calls: this page is not inside Apps Script, so google.script.run.x(...) is sent to the web app's doPost.
 (function(){
-  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
+  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
   // Calls that only read (sign-in, data, calendar) are tried up to twice more when the reply is lost on the way back
   // (Safari: "Load failed"; it happens now and then with Apps Script). Saves are never repeated.
   var SAFE = ["whoAmI","unlock","publicData","importProgress","getRulesInfo","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","getSiteText","accessVolunteerList","accessNameCheck"];
@@ -126,6 +126,12 @@ button,select,input[type=date]{font:inherit;color:var(--ink)}
 .seg button{border:0;background:transparent;padding:8px 14px;cursor:pointer;min-height:40px}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--accent);color:var(--accentInk);font-weight:600}
+/* Feeders (2026-10-09): one ⋯ row; the feeder window's title is a Cal-hypo | Acid pill switch on the × row (the
+   one showing filled); tapping the other swaps windows */
+.pophead h2.fdsw{display:inline-flex;gap:3px;padding:3px;border-radius:999px;background:var(--soft, rgba(127,127,127,.14));margin-top:-2px}
+.pophead h2.fdsw button{font:inherit;font-size:15px;font-weight:600;letter-spacing:0;color:var(--ink2);background:none;border:0;border-radius:999px;padding:5px 16px;min-height:32px;cursor:pointer}
+.pophead h2.fdsw button.on{background:var(--accent);color:var(--accentInk);cursor:default}
+.pophead h2.fdsw + .popsub{margin-top:8px}
 .presets{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pill{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;cursor:pointer;font-size:14px;min-height:34px}
 .pill.on{background:var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:600}
@@ -412,10 +418,27 @@ dialog .hint{font-size:12px;color:var(--muted);margin-top:2px}
 #feedDlg .fdsum{margin-left:auto;color:var(--muted);font-size:14px}
 #feedDlg .fdmore .fdhelp{margin:4px 0 12px}
 /* acid feeder settings (2026-10-09): the pop-up rules in DESIGN.md, like the cal-hypo feeder */
-#acidDlg .aftank{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--ink2)}
-#acidDlg .aftank b{color:var(--ink);font-weight:600}
-#acidDlg .afgauge{flex:0 0 22px;height:34px;border-radius:5px;background:color-mix(in srgb,var(--accent) 16%,var(--card));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);position:relative;overflow:hidden}
-#acidDlg .afgauge i{position:absolute;left:0;right:0;bottom:0;background:var(--accent);opacity:.8}
+/* feeder off / on (2026-10-10) */
+.fdrun{margin:0 0 12px}
+.fdrun.bottom{margin:18px 0 4px}
+.fdrun .elist .echk{min-height:50px}
+.fdrun .elist .echk:first-child{border-top:0}
+.fdrunw{gap:12px}
+.fdrunw input{flex:1 1 auto;width:auto;min-width:0;max-width:70%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;text-align:right;-webkit-appearance:none;appearance:none}
+.fdrunb{display:flex;gap:8px;margin-top:8px}.fdrunb .btn{flex:1;min-height:44px}
+.fdrunst{margin:8px 4px 0;font-size:14px;line-height:1.45;color:var(--ink2)}
+.fdrunst b{color:var(--ink)}
+.fdrunh{margin:10px 4px 0;font-size:13.5px;line-height:1.6;color:var(--ink2)}
+.fdrunh .lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.fdrunh small{color:var(--muted);font-size:12.5px}
+.fdtank{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:14px;color:var(--ink2)}
+.fdtank b{color:var(--ink);font-weight:600}
+.fdgauge{flex:0 0 auto;display:block;color:var(--accent)}
+.fdgauge .sh{fill:color-mix(in srgb,var(--accent) 14%,var(--card));stroke:color-mix(in srgb,var(--accent) 50%,transparent);stroke-width:1.5}
+.fdgauge .lid{fill:color-mix(in srgb,var(--accent) 50%,var(--card))}
+.fdgauge .lq{fill:var(--accent);opacity:.8}
+.fdgauge .tb{fill:var(--accent);opacity:.85}
+.fdgauge .tb.gone{fill:none;stroke:color-mix(in srgb,var(--accent) 30%,transparent);stroke-width:1;opacity:1}
 #acidDlg .afnote{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.35}
 #acidDlg .afstep{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center}
 #acidDlg .afpm{height:52px;border-radius:12px;border:0;background:var(--card);color:var(--accent);font:inherit;font-size:28px;font-weight:500;line-height:1;cursor:pointer;padding:0}
@@ -531,6 +554,7 @@ body:not(.unlocked) .up,body:not(.unlocked) .histrow{display:none !important}
 body:not(.lvl-board):not(.lvl-manager) .brd{display:none !important}
 body:not(.lvl-manager) .mgr{display:none !important}
 body:not(.is-vol) .volonly{display:none !important}
+body.is-vol .novol{display:none !important}   /* named people sign out from My login (2026-10-09) */
 #moreBtn,#eMore{position:relative}
 #moreBtn.has-dot,#eMore.has-dot{overflow:visible}
 #moreBtn.has-dot::after,#eMore.has-dot::after{content:attr(data-count);position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:10px;background:#ff3b30;color:#fff;font:600 12px/20px -apple-system,system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px var(--card);pointer-events:none}
@@ -1096,6 +1120,35 @@ html.app #entryUi.menu .macts{display:flex}
 .erec .r b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
 .erec .r .g{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink2)}
 .erec .none{padding:8px 4px;font-size:13px;color:var(--muted)}
+/* pump panel design pass (2026-10-09): full-width boxes, each with its line right under it (like the Pump Log app) */
+.etile.epbig{margin-top:6px}
+.epfill{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:46px;margin:0 0 2px;border:0;border-radius:16px;background:var(--frost);box-shadow:inset 0 0 0 .5px var(--frostLine);padding:0 14px;font:inherit;font-size:15px;color:var(--accent);cursor:pointer;text-align:left}
+.epfill[hidden]{display:none}
+.epfill span{color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.epfill.on{color:color-mix(in srgb,var(--green) 75%,var(--ink));cursor:default}
+.etile.epbig .nm i{font-size:12px}
+.etile.epbig input,html .etile.epbig input{font-size:30px !important;font-weight:650}   /* over the phones' 16px rule (30px won't zoom) */
+.epin{display:flex;align-items:baseline;gap:6px}
+.epin input{flex:1;min-width:0}
+.epin em{font-style:normal;font-size:15px;color:var(--muted)}
+.ephint{margin:4px 6px 4px;font-size:13.5px;line-height:1.4;color:var(--ink2);min-height:19px}
+.ephint b{color:var(--ink);font-variant-numeric:tabular-nums}
+.ephint .warn{color:var(--red)}
+.epdelta{margin:8px 0 0;border-radius:16px;background:var(--frost);box-shadow:inset 0 0 0 .5px var(--frostLine);padding:10px 14px;font-size:14px;line-height:1.45;color:var(--ink2)}
+.epdelta[hidden]{display:none}
+.epdelta .lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.epdelta b{color:var(--ink);font-variant-numeric:tabular-nums}
+.epdelta.warn{background:color-mix(in srgb,var(--yellow) 18%,var(--frost));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yellow) 60%,transparent)}
+.epdelta.bad{background:color-mix(in srgb,var(--red) 16%,var(--frost));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red) 60%,transparent)}
+.epdelta.bad b,.epdelta.bad{color:var(--ink)}
+.elist.epnote{margin-top:12px}
+.elist.epnote .etext{padding:14px 0;min-height:50px}
+.elist.epnote .echk:first-child{border-top:0}
+.erec .r .gp{font-weight:650;color:var(--ink)}
+.erec .r.well .gp{color:color-mix(in srgb,var(--water) 80%,var(--ink))}
+.erec .r.pool .gp{color:color-mix(in srgb,var(--k-ch) 80%,var(--ink))}
+.erec .r .tk{white-space:nowrap;font-size:12px;color:var(--ink2)}
+.erec .r .tk.full{font-weight:650;color:color-mix(in srgb,var(--green) 75%,var(--ink));background:color-mix(in srgb,var(--green) 16%,transparent);border-radius:999px;padding:1px 8px}
 /* Add chemical panel (2026-10-07): chemical buttons, then one block per chemical (amount + unit, strength, slow feeder, estimate, stock) */
 .ecpick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;container-type:inline-size}
 .ecpick button{height:48px;min-width:0;border:1.5px solid transparent;border-radius:14px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--ink);font:inherit;font-size:14.5px;font-size:min(15px,3.9cqi);font-weight:600;text-align:left;padding:0 9px;cursor:pointer;line-height:1.2;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;letter-spacing:-.01em}
@@ -1178,7 +1231,11 @@ html.app #entryUi.menu .macts{display:flex}
 .ecsi.hero .epill{font-size:12px;padding:2px 8px}
 .ecsi.hero b{display:block;font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin-top:2px}
 .ebar{position:relative;height:6px;border-radius:3px;background:color-mix(in srgb,var(--muted) 22%,transparent);margin:8px 0 6px}
-.ebar .ok{position:absolute;top:0;bottom:0;border-radius:3px;background:color-mix(in srgb,var(--green) 45%,transparent)}
+.ebar .bds{position:absolute;inset:0;border-radius:3px;overflow:hidden}
+.ebar .bds i{position:absolute;top:0;bottom:0}
+.ebar .bds .green{background:color-mix(in srgb,var(--green) 60%,transparent)} .ebar .bds .yellow{background:color-mix(in srgb,var(--yellow) 70%,transparent)}
+.ebar .bds .red{background:color-mix(in srgb,var(--red) 60%,transparent)} .ebar .bds .purple{background:color-mix(in srgb,var(--purple) 60%,transparent)}
+.ebar .dot.old{background:var(--muted)}
 .ebar .dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--k-csi);box-shadow:0 0 0 2px var(--card);transform:translate(-50%,-50%);transition:left .25s}
 .ebar .dot[hidden]{display:none}
 .ecsi.hero .from{font-size:12.5px;line-height:1.35}
@@ -1659,12 +1716,6 @@ dialog.pop.wide{max-width:1040px}
       <button class="btn ico keep" id="moreBtn" type="button" aria-label="More actions"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg></button>
     </div>
 </div></header>
-<div id="impBox" class="impbox" role="status" aria-live="polite" hidden>
-  <div class="imph"><span class="impspin" aria-hidden="true"></span><b id="impTitle">Importing…</b><span id="impTime" class="impt"></span><button type="button" id="impX" class="impx" aria-label="Close">×</button></div>
-  <div class="impbar"><i id="impFill"></i></div>
-  <ul id="impLog" class="implog"></ul>
-  <div id="impSum" class="impsum"></div>
-</div>
 <div class="wrap">
   <div id="status" class="status" role="status"></div>
   <div class="gate pub" id="gate">
@@ -1738,20 +1789,18 @@ dialog.pop.wide{max-width:1040px}
   <div class="mhead"><span>Menu</span><button type="button" class="popx" id="menuX" aria-label="Close">×</button></div>
   <button type="button" class="mrow pub appOnly" id="mnSignIn">Sign in</button>
   <button type="button" class="mrow appOnly" id="mnRefresh">Refresh</button>
-  <button type="button" class="mrow mobonly priv brd" id="mnPrint">Print</button>
-  <button type="button" class="mrow priv mgr" id="mnImport">Import now</button>
   <button type="button" class="mrow priv mgr" id="mnRemoved">Review removed tests</button>
-  <button type="button" class="mrow priv mgr" id="mnFeeder">Cal-hypo feeder</button>
-  <button type="button" class="mrow priv mgr" id="mnAcid">Acid feeder</button>
+  <button type="button" class="mrow priv mgr" id="mnFeeders">Feeders</button>
   <button type="button" class="mrow priv brd" id="mnPrices">Prices</button>
   <button type="button" class="mrow priv mgr" id="mnVols">Volunteers</button>
   <button type="button" class="mrow priv volonly" id="mnChgPw">My login</button>
-  <button type="button" class="mrow priv" id="mnLock" style="border-bottom:0">Sign out</button>
+  <button type="button" class="mrow priv novol" id="mnLock">Sign out</button>
+  <button type="button" class="mrow mobonly priv brd" id="mnPrint" style="border-bottom:0">Print</button>
   <div class="mninfo"><div id="mnWho"></div><div id="mnAsof"></div><div id="mnUpd"></div></div>
 </dialog>
 
 <dialog id="feedDlg" class="fd pop" aria-labelledby="fdH" tabindex="-1" autofocus>
-  <div class="pophead"><div><h2 id="fdH">Cal-hypo feeder</h2><span class="popsub">CCH Endurance · one setting for everyone</span></div>
+  <div class="pophead"><div><h2 id="fdH" class="fdsw" role="group" aria-label="Which feeder"><button type="button" data-fsw="cal" class="on" aria-pressed="true">Cal-hypo</button><button type="button" data-fsw="acid" aria-pressed="false">Acid</button></h2><span class="popsub">CCH Endurance · one setting for everyone</span></div>
     <button type="button" class="popx" id="fdX" aria-label="Close">×</button></div>
   <div class="popbody">
   <div class="fdhero" id="fdRes" aria-live="polite"></div>
@@ -1772,12 +1821,13 @@ dialog.pop.wide{max-width:1040px}
       <p class="fdhelp">CCH Endurance tablets: 265 g, 68% (maker's sheet).</p>
     </details>
   </div>
+  <div class="fdrun bottom" id="fdRun" data-run="cal"></div>
   </div>
   <div class="popfoot"><div class="err" id="fdErr" role="alert"></div><button class="btn primary" type="button" id="fdSave">Save</button></div>
 </dialog>
 
 <dialog id="acidDlg" class="pop" aria-labelledby="afH" tabindex="-1" autofocus>
-  <div class="pophead"><div><h2 id="afH">Acid feeder</h2><span class="popsub">Rola-Chem RC303 · one setting for everyone</span></div>
+  <div class="pophead"><div><h2 id="afH" class="fdsw" role="group" aria-label="Which feeder"><button type="button" data-fsw="cal" aria-pressed="false">Cal-hypo</button><button type="button" data-fsw="acid" class="on" aria-pressed="true">Acid</button></h2><span class="popsub">Rola-Chem RC303 · one setting for everyone</span></div>
     <button type="button" class="popx" id="afX" aria-label="Close">×</button></div>
   <div class="popbody">
   <div class="pophero" id="afRes" aria-live="polite"></div>
@@ -1800,6 +1850,7 @@ dialog.pop.wide{max-width:1040px}
       <p class="pophelp">RC303: 12 gal a day (maker's chart). On TIMER it runs that share of every 9 minutes.</p>
     </details>
   </div>
+  <div class="fdrun bottom" id="afRun" data-run="acid"></div>
   </div>
   <div class="popfoot"><div class="err" id="afErr" role="alert"></div><button class="btn primary" type="button" id="afSave">Save</button></div>
 </dialog>
@@ -1881,7 +1932,7 @@ dialog.pop.wide{max-width:1040px}
 </dialog>
 
 <dialog id="chgDlg" class="pop" aria-labelledby="chgH">
-  <div class="pophead"><div><h2 id="chgH">My login</h2><span class="popsub">Your names and password</span></div><button type="button" class="popx" id="chgCancel" aria-label="Close">×</button></div>
+  <div class="pophead"><div><h2 id="chgH">My login</h2><span class="popsub">Your names, password and sign out</span></div><button type="button" class="popx" id="chgCancel" aria-label="Close">×</button></div>
   <div class="popbody">
   <div class="popsec" style="margin-top:4px">Other first names</div>
   <label for="akaIn">Also goes by</label>
@@ -1899,6 +1950,9 @@ dialog.pop.wide{max-width:1040px}
     <label for="chgNew2">New password again</label>
     <span class="pw-wrap"><input type="text" class="secret" id="chgNew2" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" data-1p-ignore data-lpignore="true" data-form-type="other"><button type="button" class="pw-show" aria-pressed="false" aria-controls="chgNew2">Show</button></span>
   </form>
+  <div class="popsec">This device</div>
+  <div class="row" style="margin-top:4px"><button class="btn" type="button" id="chgOut">Sign out</button></div>
+  <p class="hint" style="margin:6px 0 0">Signs out on this phone or computer only.</p>
   </div>
   <div class="popfoot"><div class="err" id="chgErr" role="alert"></div><button class="btn primary" type="submit" form="chgForm" id="chgGo">Change password</button></div>
 </dialog>
@@ -2739,13 +2793,23 @@ function trkState(t){
     return {lv: dt >= t.warn + 1 ? 'red' : dt >= Math.max(t.warn - 1, 1) ? 'yellow' : 'green', d: dt, due: addDays(ev.day, t.warn)};
   }
   if (!ev) return {lv: 'none', d: null};
+  var Fo = t.type === 'slow' ? (feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null) : null;
+  if (Fo && Fo.offNow) return {lv: 'none', d: daysBetween(ev.day, todayCentral()), off: Fo.offNow};   // feeder off: its job waits (2026-10-10)
   // Put off ("Not yet", t.post from the Job checks tab): the schedule runs as if it was last done (due day - Warn), so
   // yellow / red / "N days late" all count from the new due day. d = days since it was really done; dd = days into the schedule.
   var d = daysBetween(ev.day, todayCentral()), span = t.warn != null ? t.warn : t.over, anchor = ev.day;
   if (t.post && span != null) anchor = addDays(t.post.until, -span);
+  else if (span != null) { var fe = trkFeedDue(t, ev); if (fe) anchor = addDays(fe, -span); }   // feeder job: due the day the fill runs out
   var dd = daysBetween(anchor, todayCentral());
   var lv = (t.over != null && dd >= t.over) ? 'red' : (t.warn != null && dd >= t.warn) ? 'yellow' : (t.warn != null || t.over != null) ? 'green' : 'none';
   return {lv: lv, d: d, dd: dd, anchor: anchor, due: span != null ? addDays(anchor, span) : null, post: !!(t.post && span != null)};
+}
+/** Feeder jobs (2026-10-09): the day the newest fill runs out by the feeder settings (cal-hypo DATA.feeder, acid
+ *  DATA.acidFeeder), when that fill is the job's last one; else null (the fixed Warn days count). "Not yet…" still wins. */
+function trkFeedDue(t, ev){
+  var F = feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null;
+  if (!F || !F.emptyAt || !F.lastFill || !ev || dayOfMs(F.lastFill) < ev.day) return null;
+  return dayOfMs(F.emptyAt);
 }
 function agoText(d){ return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d + ' days ago'; }
 function trkDay(day){ return fmtDay(day, day.slice(0, 4) !== todayCentral().slice(0, 4)); }
@@ -2894,6 +2958,7 @@ function jobNext(t){
   var s = trkState(t), span = t.warn != null ? t.warn : t.over, ev = t.events && t.events[0], today = todayCentral();
   if (t.err) return {txt: 'Check setting', lv: 'red', day: ''};
   if (!ev) return {txt: 'No record', lv: 'none', day: ''};
+  if (s.off) return {txt: 'Feeder off', lv: 'none', day: 'since ' + fmtDay(dayOfMs(s.off), false)};
   if (span == null || !s.due) return {txt: 'No schedule', lv: 'none', day: ''};
   var k = daysBetween(today, s.due), late = s.dd - span, day = k <= 6 && k >= -6 ? fmtDayLong(s.due).replace(/, \d{4}$/, '') : fmtDay(s.due, false);
   if (s.lv === 'red') return {txt: late >= 1 ? late + (late === 1 ? ' day late' : ' days late') : 'Late', lv: 'red', day: 'was due ' + day};
@@ -2943,13 +3008,15 @@ function jobFeedState(t){ return feedJob(t) ? feedState() : acidJob(t) ? feedSta
 /** {empty: true, day} once the newest fill should be used up, {empty: false, days left, day} before; null without a fill.
  *  F = the server's feeder summary (DATA.feeder when left out; DATA.acidFeeder for the acid feeder). */
 function feedState(F){
-  F = F || DATA.feeder; if (!F || !F.emptyAt) return null;
+  F = F || DATA.feeder; if (F && F.offNow) return {off: true, since: F.offNow, wait: F.waitShare};
+  if (!F || !F.emptyAt) return null;
   var now = Date.now(), day = dayOfMs(F.emptyAt);
   return F.emptyAt <= now ? {empty: true, day: day} : {empty: false, left: (F.emptyAt - now) / DAYMS, day: day};
 }
 function dayOfMs(ms){ var d = new Date(ms - 5 * 3600000); return d.toISOString().slice(0, 10); }   // Central (CDT; an hour off in winter is fine here)
 function feedLeftHtml(st){
   if (!st) return '';
+  if (st.off) return '<b>⏸ Feeder off since ' + esc(runWhen(st.since)) + '</b><span class="m">' + (isNum(st.wait) && st.wait > 0 ? 'About ' + Math.round(st.wait * 100) + '% of the last fill is waiting in it. ' : '') + 'Not due until it’s back on.</span>';
   return st.empty ? '<b class="e">Probably empty since ' + esc(trkDay(st.day)) + '</b>' :
     '<b>About ' + (st.left < 1 ? 'a day' : Math.round(st.left) + (Math.round(st.left) === 1 ? ' day' : ' days')) + ' left <span>(runs out ' + esc(jobShort(st.day)) + ')</span></b>';
 }
@@ -3157,6 +3224,7 @@ function renderJobs(ts){
   var lines = [];
   all.forEach(function(i){
     var fe = jobFeedState(ts[i]);
+    if (fe && fe.off) lines.push('<div class="jline"><span>⏸ ' + (feedJob(ts[i]) ? 'Cal-hypo' : 'Acid') + ' feeder off since ' + esc(trkDay(dayOfMs(fe.since))) + '</span></div>');
     if (fe && fe.empty && due.indexOf(i) < 0) lines.push('<div class="jline"><span>' + (feedJob(ts[i]) ? 'Cal-hypo' : 'Acid') + ' feeder probably empty since ' + esc(trkDay(fe.day)) + '</span></div>');
   });
   if (!rows.length && all.length) lines.push('<div class="jline"><span><span class="ok">✓</span> <b>All jobs done</b></span></div>');
@@ -3672,7 +3740,17 @@ function nowTempModel(){
     });
   });
   best.n = T.length; best.rms = T.length ? Math.sqrt(best.err / T.length) : null;
-  best.at = function(ms){ var v = at(best.sr, ms); return v === null ? null : v + best.off; };
+  // Anchored to the latest test (2026-10-09, Camelo: "my last two tests have been 79, the estimate still shows 76"): the
+  // fit above only learns how the pool follows the weather; from the latest test on, the estimate is that test plus the
+  // weather's change since. Eased in over the 2 days before the test so the chart line doesn't jump at it.
+  var L = T.length ? T[T.length - 1] : null, fit = function(ms){ var v = at(best.sr, ms); return v === null ? null : v + best.off; };
+  best.anchor = L ? {ms: L.ms, v: L.tempF, d: L.tempF - fit(L.ms)} : null;
+  best.fit = fit;
+  best.at = function(ms){
+    var v = fit(ms); if (v === null || !best.anchor) return v;
+    var w = ms >= best.anchor.ms ? 1 : Math.max(0, 1 - (best.anchor.ms - ms) / (2 * DAYMS));
+    return v + w * best.anchor.d;
+  };
   best.air4 = (function(){ var s = 0, c = 0, now = Date.now(); for (var t = now - 4 * DAYMS; t <= now; t += HR) { var v = nowWxAt('air', t); if (v !== null) { s += v; c++; } } return c ? s / c : null; })();
   return best;
 }
@@ -3794,6 +3872,28 @@ function nowCalPct(){ var c = (DATA.chemicals || []).filter(function(x){ return 
 function nowAcidPct(){ var a = null; (DATA.chems || []).forEach(function(x){ if (x.fx && x.fx.acid && isNum(x.strength) && (!a || x.ms > a.ms)) a = x; }); return a ? Number(a.strength) : 31.45; }
 
 /* ---- chart: tests as dots on a line, a dashed estimate from the last test on, triangles for additions, a bar for feeders */
+/** A soft line through every point (2026-10-10, Camelo: "a little softer, still through the dots"): monotone cubic
+ *  (Fritsch-Carlson), so it never swings above a high dot or below a low one between them. pts = [[x, y]] in screen units. */
+function nowCurve(pts){
+  var n = pts.length; if (!n) return '';
+  var f = function(v){ return v.toFixed(1); };
+  if (n < 3) return pts.map(function(p, i){ return (i ? 'L' : 'M') + f(p[0]) + ' ' + f(p[1]); }).join(' ');
+  var dx = [], m = [], t = [];
+  for (var i = 0; i < n - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0]; m[i] = dx[i] ? (pts[i + 1][1] - pts[i][1]) / dx[i] : 0; }
+  t[0] = m[0]; t[n - 1] = m[n - 2];
+  for (i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  for (i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+    var a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b;
+    if (h > 9) { var k = 3 / Math.sqrt(h); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]);
+  for (i = 0; i < n - 1; i++) {
+    var q = dx[i] / 3;
+    d += ' C' + f(pts[i][0] + q) + ' ' + f(pts[i][1] + t[i] * q) + ' ' + f(pts[i + 1][0] - q) + ' ' + f(pts[i + 1][1] - t[i + 1] * q) + ' ' + f(pts[i + 1][0]) + ' ' + f(pts[i + 1][1]);
+  }
+  return d;
+}
 function nowChart(o){
   var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? 120 : 92) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
@@ -3845,7 +3945,7 @@ function nowChart(o){
   if (o.model) {
     var mp = o.model.filter(function(p){ return p.ms >= x0 && p.ms <= x1; });
     var mpast = mp.filter(function(p){ return p.ms <= now; }), mfut = mp.filter(function(p){ return p.ms >= now - 3 * HR; });
-    var pl = function(a){ return a.map(function(p, i){ return (i ? 'L' : 'M') + X(p.ms).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' '); };
+    var pl = function(a){ return nowCurve(a.map(function(p){ return [X(p.ms), Y(p.v)]; })); };
     if (mpast.length > 1) s += '<path d="' + pl(mpast) + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" opacity=".75"/>';
     if (mfut.length > 1) s += '<path d="' + pl(mfut) + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-dasharray="4 4" opacity=".6"/>';
   }
@@ -3854,18 +3954,18 @@ function nowChart(o){
   if (!o.model) {
     var line = (prev ? [{ms: x0, v: prev.v + (pts[0] ? (pts[0].v - prev.v) * (x0 - prev.ms) / (pts[0].ms - prev.ms) : 0)}] : []).concat(pts);
     if (line.length > 1) {
-      var d1 = line.map(function(p, i){ return (i ? 'L' : 'M') + X(p.ms).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ');
+      var d1 = nowCurve(line.map(function(p){ return [X(p.ms), Y(p.v)]; }));
       s += '<path d="' + d1 + ' L' + X(line[line.length - 1].ms).toFixed(1) + ' ' + (top + ih) + ' L' + X(line[0].ms).toFixed(1) + ' ' + (top + ih) + ' Z" fill="' + col + '" opacity=".08"/>';
       s += '<path d="' + d1 + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
     }
     if (o.est && o.est.length && pts.length) {
       var e = [pts[pts.length - 1]].concat(o.est);
-      s += '<path d="' + e.map(function(p, i){ return (i ? 'L' : 'M') + X(p.ms).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ') + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-dasharray="4 4" opacity="' + (o.unsure ? .45 : .9) + '"/>';
+      s += '<path d="' + nowCurve(e.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-dasharray="4 4" opacity="' + (o.unsure ? .45 : .9) + '"/>';
     }
   }
   if (o.fut && o.fut.length) {
     var f2 = [{ms: now, v: o.nowV}].concat(o.fut.filter(function(p){ return p.ms <= x1; }));
-    s += '<path d="' + f2.map(function(p, i){ return (i ? 'L' : 'M') + X(p.ms).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-dasharray="2 4" opacity=".55"/>';
+    s += '<path d="' + nowCurve(f2.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-dasharray="2 4" opacity=".55"/>';
   }
   pts.forEach(function(p, i){ s += '<circle cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === pts.length - 1 ? 3.6 : 2.6) + '" fill="' + col + '"/>'; });
   if (isNum(o.nowV)) s += '<circle cx="' + X(now).toFixed(1) + '" cy="' + Y(o.nowV).toFixed(1) + '" r="4.5" class="nnowdot" stroke="' + col + '"/>';
@@ -3885,8 +3985,30 @@ function nowAdds(cs, f){
     return {ms: x.ms, label: f === 'ph' ? (x.fx.acid ? 'acid' : 'borax') : (isNum(Number(c.amount)) ? '+' + fmtNum(Number(c.amount)) + ' ' + u : '')};
   });
 }
+/** The "feeder running" bars under a chart: for a feeder fill, from where its release curve starts to where it really
+ *  finishes, with a gap for each time the feeder was off (2026-10-12; the math already skipped those, only the bar didn't). */
 function nowFeeds(cs, f){
-  return cs.filter(function(x){ return x.slow && (f === 'ph' || f === 'ta' ? x.fx.acid : x.fx[f]); }).map(function(x){ return [x.ms, x.ms + x.dur]; });
+  var out = [];
+  cs.forEach(function(x){
+    if (!x.slow || !(f === 'ph' || f === 'ta' ? x.fx.acid : x.fx[f])) return;
+    var r = x.fx.rel, a = x.ms, b = x.ms + x.dur, offs = [];
+    if (r) {
+      var i0 = -1, i1 = -1;
+      for (var i = 1; i < r.length; i++) if (r[i][1] > r[i - 1][1]) { if (i0 < 0) i0 = i - 1; i1 = i; }
+      if (i0 < 0) return;                                         // nothing has come out of it (feeder off since the fill)
+      a = x.ms + r[i0][0] * HR; b = x.ms + r[i1][0] * HR;
+      var F = x.fx.acid ? DATA.acidFeeder : DATA.feeder;
+      offs = ((F && F.off) || []).slice().sort(function(p, q){ return p.from - q.from; });
+    }
+    offs.forEach(function(o){
+      var to = o.to == null ? Infinity : o.to;
+      if (to <= a || o.from >= b) return;
+      if (o.from > a) out.push([a, o.from]);
+      a = Math.max(a, to);
+    });
+    if (b > a) out.push([a, b]);
+  });
+  return out;
 }
 function nowStats(k, rname, days){
   var cut = Date.now() - days * DAYMS, v = (DATA.tests || []).filter(function(t){ return t.ms >= cut && isNum(t[k]); }).map(function(t){ return t[k]; });
@@ -4003,9 +4125,10 @@ function nowTempTile(M){
   var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF};
   var foot = r.noWx ? (nowWxBusy || !nowWx ? 'Loading the weather…' : 'Weather didn’t load, so this is the last test') : isNum(r.tomorrow) ? 'Tomorrow<span data-d> afternoon</span> ≈' + Math.round(r.tomorrow) + '°' : '';
   var acc = r.m && r.m.n >= 4 && isNum(r.m.rms) ? 'Within about ±' + Math.max(1, Math.round(r.m.rms)) + '° of your tests' : r.m ? 'Rough until there are a few more temperature tests' : '';
+  var an = r.m && r.m.anchor, wxd = an ? r.v - an.v : 0;
   var how = r.m ? nowHow([isNum(r.m.air4) ? ['Air, last 4 days on average', Math.round(r.m.air4) + '°'] : null,
-    ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
-    r.m.n ? ['Your tests run ' + (r.m.off >= 0 ? 'warmer' : 'cooler') + ' by', (r.m.off >= 0 ? '+' : '−') + Math.abs(r.m.off).toFixed(1) + '°'] : ['No temperature tests to learn from yet', '']],
+    an ? ['Last test<span data-d> (' + esc(nowWhen(r.last)) + ')</span>', Math.round(an.v) + '°'] : ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
+    an ? ['Weather since then (water lags a few days)', (wxd >= 0 ? '+' : '−') + Math.abs(wxd).toFixed(1) + '°'] : ['No temperature tests to learn from yet', '']],
     ['Now', '≈' + Math.round(r.v) + '°']) : '';
   var big = Object.assign({}, co, {span: NOW_SPAN_BIG.tempF, big: true, ahead: 0, back: NOW_BACK_BIG.tempF});
   var det = '<div class="ndet"><div><h4>Last 2 months</h4>' + (open ? nowChart(big) : '') + '</div>' +
@@ -4036,9 +4159,36 @@ function nowSummary(M){
     var unsure = (M.now - r.last.ms) / HR > NOW_SURE_H[d[0]], st = unsure ? {cls: 'u'} : nowStatus(d[3], r.v);
     return '<span class="ntag ' + st.cls + '">' + d[3] + ' ' + (unsure ? '?' : nowFmt(d[0], r.v)) + '</span>';
   }).join('');
-  var say = [], fc = M.r.fc, gfc = nowGreen('FC'), fcLow = false;
+  var say = [], fc = M.r.fc, gfc = nowGreen('FC'), fcLow = false, fcHigh = false;
+  var dayLess = function(ms){ return nowClock(Math.round(ms / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }); };
   if (fc && gfc && (M.now - fc.last.ms) / HR <= NOW_SURE_H.fc) {
-    if (fc.v < gfc.lo) { say.push('FC is low now.'); fcLow = true; }
+    if (fc.v < gfc.lo) {
+      // low, from the Ranges tab too (2026-10-10): under the bottom of the lowest band that isn't red (FC 1) = not OK to swim
+      var legalLo = Infinity; bandsFor('FC').forEach(function(b){ if (b.color !== 'red' && b.min != null && isFinite(b.min)) legalLo = Math.min(legalLo, b.min); });
+      say.push(isFinite(legalLo) && legalLo < gfc.lo && fc.v < legalLo ? 'FC is too low (≈' + nowFmt('fc', fc.v) + '): not OK to swim. Add chlorine.'
+        : 'FC is low (≈' + nowFmt('fc', fc.v) + ')' + (isFinite(legalLo) && legalLo < gfc.lo ? ': OK to swim; add chlorine to get it over ' + gfc.lo : '') + '.');
+      fcLow = true;
+    }
+    else if (isFinite(gfc.hi) && fc.v > gfc.hi) {
+      // FC high (2026-10-10, Camelo: "says everything looks in range, but chlorine is clearly predicted high"): say so, and
+      // when the forecast brings it back under the top of the green range (the 36-hour forecast, then up to a week ahead)
+      fcHigh = true;
+      // Both times (Camelo, 2026-10-10): under the state's limit (the top of the highest band that isn't red: FC 8, "OK
+      // to swim") and back in green (FC 7). The 36-hour forecast first, then up to a week ahead.
+      var legal = -Infinity; bandsFor('FC').forEach(function(b){ if (b.color !== 'red' && b.max != null && isFinite(b.max)) legal = Math.max(legal, b.max); });
+      var wk = null, under = function(lim){
+        var x = fc.fut.filter(function(p){ return p.v <= lim; })[0];
+        if (!x) { wk = wk || nowFcRun(fc.v, nowFcSteps(M.cs, M.now, M.now + 7 * DAYMS), fc.m.al, fc.m.be, true); x = wk.path.filter(function(p){ return p.v <= lim; })[0]; }
+        return x ? dayLess(x.ms) : '';
+      };
+      var tGreen = under(gfc.hi), txt = 'FC is ' + nowStatus('FC', fc.v).txt.toLowerCase() + ' (≈' + nowFmt('fc', fc.v) + '): ';
+      if (isFinite(legal) && legal > gfc.hi && fc.v > legal) {
+        var tLegal = under(legal);
+        txt += (tLegal ? 'under ' + legal + ' (OK to swim) around ' + tLegal : 'still over ' + legal + ' (not OK to swim) a week from now') +
+          (tGreen ? ', under ' + gfc.hi + ' around ' + tGreen : '');
+      } else txt += (isFinite(legal) && legal > gfc.hi ? 'OK to swim; ' : '') + (tGreen ? 'back in range (under ' + gfc.hi + ') around ' + tGreen : 'still above ' + gfc.hi + ' a week from now');
+      say.push(txt + '.');
+    }
     else { var x = fc.fut.filter(function(p){ return p.v < gfc.lo; })[0]; if (x) say.push('FC drops under ' + gfc.lo + ' around ' + nowClock(Math.round(x.ms / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }) + '.'); }
   }
   var bad = [], unsure = [];
@@ -4054,7 +4204,7 @@ function nowSummary(M){
   var stTop = 'g';                                               // top-card trial: r if anything is red, y if anything needs attention
   NOW_TILES.forEach(function(d){ var r = M.r[d[0]]; if (!r || (M.now - r.last.ms) / HR > NOW_SURE_H[d[0]] || (NOW_QUIET[d[0]] && r.v <= NOW_QUIET[d[0]])) return;
     var c = colorOf(d[3], r.v); if (c === 'red') stTop = 'r'; else if ((c === 'yellow' || c === 'purple') && stTop === 'g') stTop = 'y'; });
-  if (stTop === 'g' && (unsure.length || bad.length || fcLow)) stTop = 'y';      // the FC forecast alone never tints it: only once FC is low
+  if (stTop === 'g' && (unsure.length || bad.length || fcLow || fcHigh)) stTop = 'y';      // the FC forecast alone never tints it: only once FC is low
   var c = M.r.csi, csi = '';
   if (c) {
     var cs = nowStatus('CSI', c.v), dom = [-0.6, 0.6], gb = nowGreen('CSI') || {lo: -0.1, hi: 0.3};
@@ -4682,7 +4832,7 @@ function feedOpen(){
   $('fdLets').innerHTML = Object.keys(F.table).map(function(L){ return '<button type="button" role="radio" data-fdl="' + L + '">' + L + '</button>'; }).join('');
   $('fdLetter').value = f.letter; $('fdTabs').value = f.tabs; $('fdDays').value = f.days == null ? '' : f.days;
   $('fdTabG').value = f.tabG; $('fdPct').value = f.pct; $('fdErr').textContent = '';
-  feedAddVis(); feedCalc(); openMenu('feedDlg');   // opens with nothing focused (no picker popping up on iPhone)
+  feedAddVis(); feedCalc(); runPend.cal = false; runDraw('cal'); openMenu('feedDlg');   // opens with nothing focused (no picker popping up on iPhone)
 }
 function feedRead(){
   var rows = [];
@@ -4742,8 +4892,21 @@ function feedCalc(){
   el.innerHTML = '<div class="fdbig"><b>' + (days ? r1(days) : '–') + '</b><span>days per full load</span></div>' +
     '<div class="fdstats"><span><b>' + fmtNum(Math.round(lb * 100) / 100) + ' lb</b> chlorine a day</span><span><b>FC +' + r1(ppm) + '</b> a day</span></div>' +
     '<div class="fdday" role="img" aria-label="How much it feeds through the day">' + parts.join('') + '</div><div class="fdticks">' + ticks.join('') + '</div>' +
-    '<p class="fdnote' + (rated || f.days > 0 ? '' : ' warn') + '">' + (f.days > 0 ? 'Using your “lasts ' + fmtNum(f.days) + ' days”. The maker\'s table alone says about ' + (tableDays ? r1(tableDays) : '–') + '.'
+    feedTankHtml(f, lb) + '<p class="fdnote' + (rated || f.days > 0 ? '' : ' warn') + '">' + (f.days > 0 ? 'Using your “lasts ' + fmtNum(f.days) + ' days”. The maker\'s table alone says about ' + (tableDays ? r1(tableDays) : '–') + '.'
       : rated ? 'From the maker\'s table (the manual that came with the feeder).' : 'Letter ' + esc(f.letter) + ' isn\'t rated at this low a flow, so this borrows the nearest rated numbers. Treat it as a guess.') + '</p>';
+}
+// the feeder now: what is left of the newest load at the saved settings, days left at the settings in the window
+function feedTankHtml(f, lb){
+  var D = DATA.feeder; if (!D || !D.lastFill) return '';
+  var filled = '<br><small>Filled ' + esc(trkDay(dayOfMs(D.lastFill))) + '</small></span></div>';
+  if (D.offNow && isNum(D.waitShare)) return '<div class="fdtank">' + feedGauge('cal', D.waitShare, f.tabs) + '<span><b>Off: about ' + Math.round(D.waitShare * 100) + '% left</b>, waiting' + filled;
+  if (!D.emptyAt || !(D.fullLb > 0)) return '';
+  var now = Date.now(), left = D.emptyAt > now && D.lbDay > 0 ? (D.emptyAt - now) / DAYMS * D.lbDay : 0, share = Math.max(0, Math.min(1, left / D.fullLb));
+  var dl = left > 0 && lb > 0 ? left / lb : null, txt;
+  if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(D.emptyAt)));
+  else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>';
+  else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
+  return '<div class="fdtank">' + feedGauge('cal', share, f.tabs) + '<span>' + txt + filled;
 }
 function feedWire(){
   var dlg = $('feedDlg');
@@ -4780,7 +4943,52 @@ function acidOpen(){
   acidLog = A.set.log.map(function(e){ return {ms: e.ms, pct: e.pct, by: e.by || ''}; });
   $('afPct').value = A.pct; $('afAcid').value = A.set.acid; $('afWater').value = A.set.water; $('afGpd').value = A.set.gpd;
   $('afAt').value = acidLocal(Date.now()); $('afErr').textContent = '';
-  acidCalc(); openMenu('acidDlg');
+  acidCalc(); runPend.acid = false; runDraw('acid'); openMenu('acidDlg');
+}
+/* ---- feeder off / on (2026-10-10): a "Feeder running" switch at the bottom of each feeder window (Manager). Flipping it
+   asks when (now unless set back) and saves at once (server setFeederRunning). While off, nothing from the feeder counts,
+   what's left waits in it, and its job has no due date; back on, it picks up where it stopped (server feederRelease_ /
+   acidRelease_). */
+var runPend = {cal: false, acid: false}, runBusy = false;
+function runF(k){ return k === 'acid' ? DATA && DATA.acidFeeder : DATA && DATA.feeder; }
+function runWhen(ms){ return new Date(ms).toLocaleString('en-US', {timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}); }
+function runLen(ms){ var h = ms / 3600000; return h < 48 ? Math.max(1, Math.round(h)) + ' h' : (Math.round(h / 24 * 10) / 10) + ' days'; }
+function runDraw(k){
+  var el = $(k === 'acid' ? 'afRun' : 'fdRun'), F = runF(k); if (!el || !F) return;
+  var off = F.offNow, pend = runPend[k], want = pend ? !!off : !off, nm = k === 'acid' ? 'acid' : 'chlorine';
+  var h = '<div class="elist"><label class="echk"><span>Feeder running</span><input type="checkbox" class="esw" data-runsw' + (want ? ' checked' : '') + '></label>';
+  if (pend) h += '<div class="echk fdrunw"><span>' + (off ? 'Turned back on' : 'Turned off') + '</span><input type="datetime-local" data-runat value="' + acidLocal(Date.now()) + '" max="' + acidLocal(Date.now()) + '"></div>';
+  h += '</div>';
+  if (pend) h += '<div class="fdrunb"><button type="button" class="btn" data-runno>Cancel</button><button type="button" class="btn primary" data-rungo>' + (off ? 'Turn on' : 'Turn off') + '</button></div><div class="err" data-runerr></div>';
+  else if (off) h += '<p class="fdrunst">⏸ <b>Off since ' + esc(runWhen(off)) + '</b>' + (F.off.length && F.off[F.off.length - 1].by ? ' · ' + esc(firstName(F.off[F.off.length - 1].by)) : '') +
+    '. No ' + nm + ' from it is counted and its job waits.' + (isNum(F.waitShare) && F.waitShare > 0 ? ' About ' + Math.round(F.waitShare * 100) + '% of the last fill is still in it.' : '') + '</p>';
+  var hist = (F.off || []).slice().reverse().slice(0, 5);
+  if (hist.length && !pend) h += '<div class="fdrunh"><span class="lbl">On / off history</span>' + hist.map(function(e){
+    return '<div><b>Off</b> ' + esc(runWhen(e.from)) + (e.to ? ' → ' + esc(runWhen(e.to)) + ' <small>' + runLen(e.to - e.from) + '</small>' : ' <small>still off</small>') + (e.by ? ' <small>· ' + esc(firstName(e.by)) + '</small>' : '') + '</div>';
+  }).join('') + '</div>';
+  el.innerHTML = h;
+}
+function runWire(dlgId, k){
+  var dlg = $(dlgId);
+  dlg.addEventListener('change', function(e){ if (e.target.hasAttribute && e.target.hasAttribute('data-runsw')) { e.stopPropagation(); runPend[k] = !runPend[k]; runDraw(k); } }, true);
+  dlg.addEventListener('click', function(e){
+    if (e.target.closest('[data-runno]')) { runPend[k] = false; runDraw(k); return; }
+    if (!e.target.closest('[data-rungo]') || runBusy) return;
+    var F = runF(k), on = !!F.offNow, at = dlg.querySelector('[data-runat]'), ms = at && at.value ? Date.parse(at.value) : Date.now(), err = dlg.querySelector('[data-runerr]');
+    runBusy = true; e.target.textContent = 'Saving…';
+    serverCall('setFeederRunning', [CODE, k, on, ms], function(res){
+      runBusy = false;
+      if (handleDenied(res)) return;
+      if (!res || !res.ok) { if (err) err.textContent = (res && res.message) || 'Could not save.'; e.target.textContent = on ? 'Turn on' : 'Turn off'; return; }
+      DATA = res.data; runPend[k] = false; renderAll(); runDraw(k);
+      if (k === 'acid') acidCalc(); else feedCalc();
+    }, function(x){ runBusy = false; e.target.textContent = on ? 'Turn on' : 'Turn off'; if (err) err.textContent = 'Could not reach the server: ' + (x && x.message || x); });
+  });
+}
+function lsGetFeeder(){ try { return localStorage.getItem('rocFeeder') === 'acid' ? 'acid' : 'cal'; } catch(e){ return 'cal'; } }
+function feederOpen(k){
+  try { localStorage.setItem('rocFeeder', k); } catch(e){}
+  if (k === 'acid') acidOpen(); else feedOpen();
 }
 function acidLocal(ms){ var d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); }
 function acidWhen(ms){ return new Date(ms).toLocaleString('en-US', {weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}); }
@@ -4791,6 +4999,21 @@ function acidRead(){
   if (changed) log.push({ms: isFinite(at) ? Math.min(at, Date.now()) : Date.now(), pct: pct, by: ''});
   log.sort(function(a, b){ return a.ms - b.ms; });
   return {gpd: +$('afGpd').value, acid: +$('afAcid').value, water: +$('afWater').value, log: log, pct: pct, changed: changed};
+}
+/* little feeder pictures for the "left now" row (2026-10-11): acid = the solution tank with its cap, filled to the share
+   left; cal-hypo = the CCH Endurance tube with its lid, one disc per tablet in a full load, the ones used up as outlines */
+function feedGauge(kind, share, tabs){
+  share = Math.max(0, Math.min(1, share || 0));
+  if (kind === 'acid') {
+    var top = 7, bot = 41, ly = bot - (bot - top) * share;
+    return '<svg class="fdgauge" width="30" height="44" viewBox="0 0 30 44" aria-hidden="true"><defs><clipPath id="fgA"><rect x="2" y="6" width="26" height="36" rx="5"/></clipPath></defs>' +
+      '<rect class="lid" x="10" y="1" width="10" height="5" rx="1.5"/><rect class="sh" x="2" y="6" width="26" height="36" rx="5"/>' +
+      '<rect class="lq" x="0" y="' + ly.toFixed(1) + '" width="30" height="' + (44 - ly).toFixed(1) + '" clip-path="url(#fgA)"/></svg>';
+  }
+  var n = Math.max(1, Math.min(30, Math.round(tabs) || 10)), inner = 36, gap = n > 14 ? 1 : 1.5, th = (inner - gap * (n - 1)) / n, lit = Math.round(share * n), h = '';
+  for (var i = 0; i < n; i++) { var y = 44 - 3 - (i + 1) * th - i * gap; h += '<rect class="tb' + (i < lit ? '' : ' gone') + '" x="6" y="' + y.toFixed(2) + '" width="14" height="' + th.toFixed(2) + '" rx="' + Math.min(2, th / 2).toFixed(2) + '"/>'; }
+  return '<svg class="fdgauge" width="26" height="46" viewBox="0 0 26 46" aria-hidden="true"><rect class="lid" x="1" y="0" width="24" height="5" rx="2"/>' +
+    '<rect class="sh" x="3" y="4" width="20" height="40" rx="3"/>' + h + '</svg>';
 }
 function acidCalc(){
   if (!DATA || !DATA.acidFeeder) return;
@@ -4812,13 +5035,15 @@ function acidCalc(){
   var h = '<div class="popbig"><b>' + (days ? (days >= 100 ? Math.round(days) : r1(days)) : '–') + '</b><span>days per fill</span></div>' +
     '<div class="popstats"><span><b>' + r2(acidDay) + ' gal</b> acid a day</span><span><b>TA −' + r1(ta) + '</b> a day</span><span><b>' + r2(mix) + ' gal</b> mix a day</span></div>';
   // the tank now: what is left of the newest fill at the saved setting, then at this one
-  if (A.emptyAt && A.lastFill) {
+  if (A.offNow && A.lastFill && isNum(A.waitShare)) {
+    h += '<div class="fdtank">' + feedGauge('acid', A.waitShare) + '<span><b>Off: about ' + Math.round(A.waitShare * 100) + '% left</b>, waiting<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
+  } else if (A.emptyAt && A.lastFill) {
     var now = Date.now(), left = A.emptyAt > now && A.acidDay > 0 ? (A.emptyAt - now) / DAYMS * A.acidDay : 0, share = Math.max(0, Math.min(1, left / A.set.acid));
     var dl = left > 0 && acidDay > 0 ? left / acidDay : null, txt;
     if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(A.emptyAt)));
     else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>, not emptying at 0%';
     else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
-    h += '<div class="aftank"><span class="afgauge" aria-hidden="true"><i style="height:' + Math.round(share * 100) + '%"></i></span><span>' + txt + '<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
+    h += '<div class="fdtank">' + feedGauge('acid', share) + '<span>' + txt + '<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
   }
   h += '<p class="afnote">At ' + f.pct + '% the pump ' + onTxt + '. From the maker\'s chart: ' + fmtNum(f.gpd) + ' gal a day × ' + f.pct + '%' + (f.water > 0 ? ', ' + fmtNum(f.acid) + ' of every ' + fmtNum(f.acid + f.water) + ' gal is acid' : '') + '.</p>';
   el.innerHTML = h;
@@ -5094,7 +5319,7 @@ window.addEventListener('message', function(e){
 /* ------------------------------------------------------------ refresh (tool bar ↻) */
 // Re-reads the sheet in place: unlocked -> unlock(CODE) with the passcode already in memory, so it never asks again
 // (a full page reload can lose the saved passcode inside the hosting frame); locked -> publicData(). Keeps the
-// current view, date range and toggles. Does not import backup files (the iPhone Shortcut / Import now do that).
+// current view, date range and toggles. For the Manager it then checks for new backup files too (importQuiet).
 var refreshMsgT = null;
 function refreshNow(){
   var b = $('refreshBtn');
@@ -5111,7 +5336,7 @@ function refreshNow(){
     serverCall('unlock', [CODE], function(res){
       if (handleDenied(res)){ finish(''); return; }
       if (!res || !res.ok){ finish((res && res.message) || 'Could not refresh.', true); return; }
-      applyUnlocked(res.data, CODE, res); finish('Up to date.');
+      applyUnlocked(res.data, CODE, res); finish('Up to date.'); importQuiet();
     }, fail);
   } else {
     serverCall('publicData', [], function(res){
@@ -5121,67 +5346,22 @@ function refreshNow(){
   }
 }
 
-/* ------------------------------------------------------------ import */
-var impPoll = null, impClock = null, impAutoHide = null;
-function impEl(id){ return document.getElementById(id); }
-/** The import box: opens the moment Import is tapped and stays until closed. Pinned under the tool bar so it is visible wherever the page is scrolled. */
-function impOpen(){
-  clearTimeout(impAutoHide);
-  var box = impEl('impBox'); box.hidden = false; box.className = 'impbox run';
-  impEl('impTitle').textContent = 'Importing…'; impEl('impTime').textContent = '0s';
-  impEl('impFill').style.width = '4%';
-  impEl('impLog').innerHTML = '<li class="now">Starting the import…</li>';
-  impEl('impSum').textContent = '';
-}
-function impRender(p){
-  if (!p || !p.log || !p.log.length) return;
-  impEl('impFill').style.width = Math.max(4, Math.min(100, p.pct || 0)) + '%';
-  impEl('impLog').innerHTML = p.log.map(function(m, i){
-    return '<li class="' + (i === p.log.length - 1 && !p.done ? 'now' : 'ok') + '">' + esc(m) + '</li>';
-  }).join('');
-}
-function impClose(){ clearTimeout(impAutoHide); impEl('impBox').hidden = true; }
-function importNow(){
-  var b = $('mnImport'), lb = b;   // the ⋯ menu row (it was a tool bar button until 2026-09-29)
-  if (b.disabled) return;
-  var token = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  var t0 = Date.now(), finished = false;
-  b.disabled = true; lb.textContent = 'Importing…'; b.setAttribute('aria-busy', 'true');
-  impOpen();
-  impClock = setInterval(function(){ impEl('impTime').textContent = Math.round((Date.now() - t0) / 1000) + 's'; }, 500);
-  function poll(){
-    if (finished) return;
-    serverCall('importProgress', [CODE, token], function(res){
-      if (finished) return;
-      if (res && res.ok && res.progress) impRender(res.progress);
-      impPoll = setTimeout(poll, 1200);
-    }, function(){ if (!finished) impPoll = setTimeout(poll, 2000); });
-  }
-  impPoll = setTimeout(poll, 600);
-  function done(ok, title, msg){
-    finished = true; clearTimeout(impPoll); clearInterval(impClock);
-    b.disabled = false; lb.textContent = 'Import now'; b.removeAttribute('aria-busy');
-    var box = impEl('impBox'); box.hidden = false; box.className = 'impbox ' + (ok ? 'ok' : 'err');
-    impEl('impTitle').textContent = title;
-    impEl('impTime').textContent = Math.round((Date.now() - t0) / 1000) + 's';
-    if (ok) impEl('impFill').style.width = '100%';
-    impEl('impLog').querySelectorAll('li.now').forEach(function(li){ li.className = ok ? 'ok' : 'bad'; });
-    impEl('impSum').textContent = msg;
-  }
-  serverCall('pageImport', [CODE, token], function(res){
-    if (handleDenied(res)){ finished = true; clearTimeout(impPoll); clearInterval(impClock); b.disabled = false; lb.textContent = 'Import now'; b.removeAttribute('aria-busy'); impClose(); return; }
-    if (!res || !res.ok){ done(false, 'Import failed', (res && res.message) || 'Import failed.'); return; }
-    var r = res.result || {};
+/* ------------------------------------------------------------ backup import (2026-10-09: no menu item any more) */
+// Pool Math backups still come in by the iPhone Shortcut and the 6-hour import. For the Manager, Refresh also checks the
+// backup folder quietly afterwards (pageImport) and only says something when it brought files in or failed.
+function importQuiet(){
+  if (!(unlocked && CODE && isMgr())) return;
+  serverCall('pageImport', [CODE, 'r' + Date.now().toString(36)], function(res){
+    if (!res || !res.ok || !res.result) return;
+    var r = res.result;
+    if (r.ok === false){ showStatus('Backup import failed: ' + (r.message || 'unknown problem'), true); return; }
+    if (!r.files) return;
     DATA = res.data; renderAll();
-    var msg = r.ok === false ? (r.message || 'Import failed.')
-      : (r.files ? 'Imported ' + r.files + ' backup file' + (r.files === 1 ? '' : 's') + '.' : 'No new backup files in the folder.');
+    var msg = 'Imported ' + r.files + ' backup file' + (r.files === 1 ? '' : 's') + '.';
     if (r.newPriceRows) msg += ' ' + r.newPriceRows + ' new chemical' + (r.newPriceRows === 1 ? '' : 's') + ' added to Prices - enter what you paid.';
-    if (r.warnings && r.warnings.length) msg += ' Note: ' + r.warnings[0];
-    var bad = (DATA.noteIssues || []).length;
-    if (bad) msg += ' ' + bad + ' Chemical note' + (bad === 1 ? '' : 's') + ' could not be read (see Prices).';
-    impRender({log: (impEl('impLog').textContent ? [].map.call(impEl('impLog').querySelectorAll('li'), function(li){ return li.textContent; }) : []), pct: 100, done: true});
-    done(r.ok !== false, r.ok === false ? 'Import failed' : 'Import finished', msg);
-  }, function(e){ done(false, 'Import failed', 'Could not reach the server: ' + (e && e.message || e)); });
+    showStatus(msg);
+    clearTimeout(refreshMsgT); refreshMsgT = setTimeout(function(){ showStatus(''); }, 6000);
+  }, function(){});
 }
 
 /* ------------------------------------------------------------ prices editor */
@@ -5817,7 +5997,6 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   $('lockBtn').addEventListener('click', function(){ lockNow(''); });
   $('refreshBtn').addEventListener('click', refreshNow);
-  $('mnImport').addEventListener('click', function(){ closeDlg('menuDlg'); importNow(); });
   // Review removed tests (Manager): each with Bring back
   var RM_KEYS = [['fc','FC'], ['cc','CC'], ['ph','pH'], ['ta','TA'], ['ch','CH'], ['cya','CYA'], ['tempF','Temp'], ['salt','Salt'], ['bor','Borates'], ['csi','CSI']];
   function rmRender(msg){
@@ -5829,10 +6008,19 @@ document.addEventListener('DOMContentLoaded', function(){
     }).join(''));
   }
   $('mnRemoved').addEventListener('click', function(){ closeDlg('menuDlg'); rmRender(''); openDlg('removedDlg'); });
-  $('mnFeeder').addEventListener('click', function(){ closeDlg('menuDlg'); feedOpen(); });
-  $('mnAcid').addEventListener('click', function(){ closeDlg('menuDlg'); acidOpen(); });
+  // Feeders: opens the feeder window used last on this device (cal-hypo the first time); the switch swaps them
+  $('mnFeeders').addEventListener('click', function(){ closeDlg('menuDlg'); feederOpen(lsGetFeeder()); });
+  document.querySelectorAll('[data-fsw]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.getAttribute('data-fsw'), cur = $('acidDlg').open ? 'acid' : 'cal';
+      if (k === cur) return;
+      closeDlg(cur === 'acid' ? 'acidDlg' : 'feedDlg'); feederOpen(k);
+    });
+  });
+  $('chgOut').addEventListener('click', function(){ closeDlg('chgDlg'); lockNow(''); });
   feedWire();
   acidWire();
+  runWire('feedDlg', 'cal'); runWire('acidDlg', 'acid');
   $('rmDone').addEventListener('click', function(){ closeDlg('removedDlg'); });
   $('rmList').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-rmback]');
@@ -5844,7 +6032,6 @@ document.addEventListener('DOMContentLoaded', function(){
       if (!err) { bgSet('Test brought back.', 'ok'); setTimeout(function(){ bgSet(''); }, 2500); }
     });
   });
-  $('impX').addEventListener('click', impClose);
   $('printBtn').addEventListener('click', openPrint);
   $('pRange').addEventListener('click', function(e){ var b = e.target.closest('button[data-r]'); if (b){ setPrintRange(b.getAttribute('data-r')); printPreview(); } });
   $('printDlg').addEventListener('change', function(){ syncGroupOpt(); printPreview(); });
@@ -6038,7 +6225,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var KIND = {test: ['test', 'var(--accent)', 'Save test'], note: ['note', 'var(--ink2)', 'Save note'], pump: ['pump reading', 'var(--water)', 'Save reading'],
     chem: ['chemical', 'var(--k-fc)', 'Save chemical'],
     vols: ['Volunteers', 'var(--red)', '']};
-  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnImport": "<path d=\"M12 3v12M7 10l5 5 5-5\"/><path d=\"M4 19h16\"/>", "mnFeeder": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnAcid": "<path d=\"M9 3h6M10 3v5.5L5.2 17.4A2.4 2.4 0 0 0 7.3 21h9.4a2.4 2.4 0 0 0 2.1-3.6L14 8.5V3\"/><path d=\"M7.5 15h9\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>"};
+  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnFeeders": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>"};
   ICON.vols = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' + MENU_ICONS.mnVols + '</svg>';
   // key, label, unit, unusual below, unusual above (yellow "Check this number"; the server refuses only impossible ones)
   var GROUPS = [
@@ -6062,7 +6249,7 @@ document.addEventListener('DOMContentLoaded', function(){
   $('eScrim').addEventListener('click', function(){ if (grow.hidden){ setOpen(false); setMenu(false); } });
   // The ⋯ as bubbles: one pill per menu row that is showing for this sign-in, nearest the ⋯ first (MENU_BOTTOM_UP), with
   // the menu's small info lines as a caption on top. A pill does what its row does; Volunteers grows into its panel.
-  var MENU_BOTTOM_UP = ['mnSignIn', 'mnRefresh', 'mnPrint', 'mnPrices', 'mnImport', 'mnRemoved', 'mnFeeder', 'mnAcid', 'mnVols', 'mnChgPw', 'mnLock'];
+  var MENU_BOTTOM_UP = ['mnPrint', 'mnSignIn', 'mnRefresh', 'mnPrices', 'mnRemoved', 'mnFeeders', 'mnVols', 'mnChgPw', 'mnLock'];
   function setMenu(o){
     if (o) buildMenuBubbles();
     ui.classList.toggle('menu', o);
@@ -6077,7 +6264,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var row = $(id), pill = document.createElement('button');
       pill.type = 'button'; pill.className = 'eact';
       pill.style.animationDelay = ((ids.length - 1 - i) * 0.025) + 's';
-      pill.innerHTML = '<span>' + row.innerHTML + '</span><span class="ei44" style="--c:' + (id === 'mnVols' ? 'var(--red)' : id === 'mnLock' ? 'var(--muted)' : 'var(--accent)') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + MENU_ICONS[id] + '</svg></span>';
+      pill.innerHTML = '<span>' + row.innerHTML + '</span><span class="ei44" style="--c:' + (id === 'mnVols' ? 'var(--red)' : id === 'mnChgPw' ? 'var(--green)' : id === 'mnLock' ? 'var(--muted)' : 'var(--accent)') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + MENU_ICONS[id] + '</svg></span>';
       pill.addEventListener('click', function(){
         if (id === 'mnVols'){ openPanel('vols', null, pill); return; }
         setMenu(false); row.click();
@@ -6210,67 +6397,129 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="eseg" role="group" aria-label="Which meter">' +
         '<button type="button" data-pt="well" style="--c:var(--water)">Well<small>Groundwater meter</small></button>' +
         '<button type="button" data-pt="pool" style="--c:var(--k-ch)">Pool<small>Pool-fill meter</small></button></div>' +
-      '<div class="etiles two">' +
-        '<label class="etile" id="epReadT" style="--c:var(--water)"><span class="nm">Meter reading<i>gal</i></span>' +
-          '<input id="epRead" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off"><span class="ls" id="epReadLs">Loading…</span></label>' +
-        '<label class="etile" id="epTankT" style="--c:var(--k-ch)"><span class="nm">Tank level<i>gal</i></span>' +
-          '<input id="epTank" inputmode="decimal" enterkeyhint="done" placeholder="–" autocomplete="off"><span class="ls" id="epTankLs">optional</span></label>' +
-      '</div>' +
-      '<div class="ecsi ep" id="epInfo"></div>' +
-      '<div class="egrp"><b>Note</b><span id="epNoteHd"></span></div>' +
-      '<input class="etext" id="epNote" maxlength="500" style="min-height:0" placeholder="Anything worth flagging" autocomplete="off">' +
-      '<div class="egrp"><b>Last readings</b><span id="epRecHd"></span></div><div class="erec" id="epRec"><div class="none">Loading…</div></div>';
+      '<button type="button" class="epfill" id="epFill" hidden></button>' +
+      // design pass 2026-10-09 (like the Pump Log app): one full-width box per number, its own line right under it
+      '<label class="etile epbig" id="epReadT" style="--c:var(--water)"><span class="nm">Meter reading<i id="epReadLs">Loading…</i></span>' +
+        '<input id="epRead" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off"></label>' +
+      '<div class="ephint" id="epReadH"></div>' +
+      '<div id="epTankW"><label class="etile epbig" id="epTankT" style="--c:var(--k-ch)"><span class="nm">Tank level<i id="epTankLs">optional</i></span>' +
+        '<span class="epin"><input id="epTank" inputmode="decimal" enterkeyhint="done" placeholder="–" autocomplete="off"><em>gal</em></span></label>' +
+      '<div class="ephint" id="epTankH"></div><div class="epdelta" id="epDelta" hidden></div></div>' +
+      '<div class="elist epnote"><input class="etext" id="epNote" maxlength="500" placeholder="Note (optional)" autocomplete="off">' +
+        '<label class="echk" id="epFullRow">Tank is full<input type="checkbox" class="esw" id="epFull"></label></div>' +
+      '<div class="egrp"><b id="epRecHd">Last readings</b></div><div class="erec" id="epRec"><div class="none">Loading…</div></div>';
   }
   /** Well / Pool switch and the parts that depend on it. prefill: put the last reading in the box (like the Pump Log app). */
   function pumpFill(prefill){
     var t = pump.type, last = pumpLast(t);
     body.querySelectorAll('[data-pt]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-pt') === t ? 'true' : 'false'); });
     $('epReadT').style.setProperty('--c', t === 'well' ? 'var(--water)' : 'var(--k-ch)');
-    $('epTankT').style.display = t === 'well' ? '' : 'none';
-    $('epReadT').classList.toggle('wide', t !== 'well');
-    $('epNoteHd').textContent = t === 'well' ? 'optional · "Tank full" turns the row green' : 'optional';
-    if (prefill) $('epRead').value = last ? String(last.reading) : '';
-    $('epReadLs').textContent = pump.readings ? (last ? 'Last ' + meter(last.reading) + ' · ' + hrsAgo(last.timestamp) : 'No reading yet') : (pump.err ? 'Not loaded' : 'Loading…');
+    $('epTankW').style.display = t === 'well' ? '' : 'none';
+    $('epFullRow').style.display = t === 'well' ? '' : 'none';
+    $('epFull').checked = t === 'well' && $('epTank').value.trim() !== '' && Number($('epTank').value.replace(/,/g, '')) >= TANK_GAL;
+    if (prefill) $('epRead').value = last ? meter(last.reading).replace(/,/g, '') : '';
+    $('epReadLs').textContent = pump.readings ? (last ? 'last ' + agoLong(last.timestamp) : 'no reading yet') : (pump.err ? 'not loaded' : 'loading…');
     var tk = pumpLast('well', 'tankLevel');
     $('epTank').placeholder = tk ? gal(tk.tankLevel) : '–';
-    $('epTankLs').textContent = tk ? 'Last ' + gal(tk.tankLevel) + ' · ' + hrsAgo(tk.timestamp) : 'optional';
-    var rs = (pump.readings || []).filter(function(r){ return r.type === t; }).slice(0, 4);
-    $('epRecHd').textContent = t === 'well' ? 'Well' : 'Pool';
+    $('epTankLs').textContent = tk ? 'last ' + gal(tk.tankLevel) + ' · ' + agoLong(tk.timestamp) : 'optional';
+    var rs = (pump.readings || []).filter(function(r){ return r.type === t; }).slice(0, 5);
+    $('epRecHd').textContent = 'Last ' + (t === 'well' ? 'well' : 'pool') + ' readings';
     $('epRec').innerHTML = pump.err ? '<div class="none" style="color:var(--red)">' + esc(pump.err) + '</div>' : !pump.readings ? '<div class="none">Loading…</div>' :
       !rs.length ? '<div class="none">No readings yet.</div>' : rs.map(function(r){
-        var gpd = r.gpd !== '' && isFinite(Number(r.gpd)) ? gal(r.gpd) + ' GPD' : '';
-        var tank = r.type === 'well' && r.tankLevel !== '' && r.tankLevel != null ? 'Tank ' + gal(r.tankLevel) : '';
-        return '<div class="r"><div><b>' + meter(r.reading) + '</b><span class="g">' + gpd + '</span></div>' +
-          '<div><span>' + esc(stamp(r.timestamp)) + (r.by ? ' · ' + esc(r.by) : '') + (r.notes ? ' · ' + esc(r.notes) : '') + '</span><span class="g">' + tank + '</span></div></div>';
+        var gpd = r.gpd !== '' && isFinite(Number(r.gpd)) ? '<span class="gp">' + gal(r.gpd) + '</span> GPD' : '';
+        var full = r.type === 'well' && ((r.tankLevel !== '' && r.tankLevel != null && Number(r.tankLevel) >= TANK_GAL) || /tank full/i.test(r.notes || ''));
+        var tank = r.type === 'well' && r.tankLevel !== '' && r.tankLevel != null ? '<span class="tk' + (full ? ' full' : '') + '">' + (full ? 'Full' : 'Tank ' + gal(r.tankLevel)) + '</span>' : full ? '<span class="tk full">Full</span>' : '';
+        return '<div class="r ' + r.type + '"><div><b>' + meter(r.reading) + '</b><span class="g">' + gpd + '</span></div>' +
+          '<div><span>' + esc(stamp(r.timestamp)) + (r.by ? ' · ' + esc(r.by) : '') + (r.notes ? ' · ' + esc(r.notes) : '') + '</span>' + tank + '</div></div>';
       }).join('');
     refresh();
   }
-  /** The line under the tiles: water since the last reading, and (Well) how full the tank is. */
-  function pumpInfo(w){
-    var t = pump.type, last = pumpLast(t), lines = [];
-    var raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw);
-    if (last && isFinite(v) && w) {
-      var g = v - Number(last.reading), h = (w.ms - Date.parse(last.timestamp)) / 3600000;
-      if (h > 0) lines.push(g === 0 ? 'Same as the last reading.' : '<b>' + (g > 0 ? '+' : '') + gal(g) + ' gal</b> in ' + (h < 48 ? h.toFixed(1) + ' h' : (h / 24).toFixed(1) + ' days') +
-        ' · <b>' + gal(g / h * 24) + '</b> GPD' + (g < 0 ? ' · lower than last time, check the number' : ''));
+  /** Pool fill cycle (2026-10-10, Camelo): the autofill runs every 6 hours (midnight, 6 AM, noon, 6 PM, the Pump Dashboard's
+   *  default schedule) and the pool reading is logged 15 minutes after a fill, so gal a day comes out right. The newest
+   *  "fill + 15 min" that isn't in the future, as {day, time} in pool time. */
+  var FILL_EVERY_H = 6, FILL_AFTER_MIN = 15;
+  function lastFillTime(){
+    var n = nowLocal(), mins = (+n.time.slice(0, 2)) * 60 + (+n.time.slice(3, 5)), step = FILL_EVERY_H * 60;
+    var t = Math.floor((mins - FILL_AFTER_MIN) / step) * step + FILL_AFTER_MIN, day = n.day;
+    if (t < 0) { t += 24 * 60; day = addDays(day, -1); }
+    var hh = Math.floor(t / 60), mm = t % 60;
+    return {day: day, time: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm};
+  }
+  function fillLabel(f){ var hh = +f.time.slice(0, 2); return (hh % 12 || 12) + ':' + f.time.slice(3) + (hh < 12 ? ' AM' : ' PM'); }
+  function pumpFillBtn(){
+    var b = $('epFill'); if (!b) return;
+    b.hidden = pump.type !== 'pool';
+    if (b.hidden) return;
+    var f = lastFillTime(), on = $('eDate').value === f.day && $('eTime').value === f.time;
+    b.classList.toggle('on', on);
+    b.innerHTML = on ? '✓ Time set to the last fill + 15 min <span>' + fillLabel(f) + '</span>'
+      : 'Set time to the last fill + 15 min <span>' + fillLabel(f) + '</span>';
+  }
+  /** The line under the meter reading: water since the last reading. */
+  function pumpReadHint(w){
+    var last = pumpLast(pump.type), raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw);
+    if (!last) return '';
+    if (!isFinite(v) || !w) return 'Last reading <b>' + meter(last.reading) + '</b>, ' + esc(stamp(last.timestamp));
+    var g = v - Number(last.reading), h = (w.ms - Date.parse(last.timestamp)) / 3600000;
+    if (h <= 0) return 'The time is before the last reading (' + esc(stamp(last.timestamp)) + ').';
+    if (g === 0) return 'Same as the last reading: change it to what the meter shows now.';
+    return '<b>' + (g > 0 ? '+' : '') + gal(g) + ' gal</b> in ' + (h < 48 ? h.toFixed(1) + ' hours' : (h / 24).toFixed(1) + ' days') +
+      ' · <b>' + gal(g / h * 24) + '</b> gal a day' + (g < 0 ? '<br><span class="warn">Lower than last time: check the number.</span>' : '');
+  }
+  /** The line under the tank level (Well): how full, and where it's heading. */
+  function pumpTankHint(){
+    var tr = $('epTank').value.trim().replace(/,/g, ''), typed = tr !== '' && isFinite(Number(tr)), tk = pumpLast('well', 'tankLevel');
+    var lv = typed ? Number(tr) : tk ? Number(tk.tankLevel) : null;
+    if (lv === null) return 'How many gallons the tank shows, if you checked it.';
+    var pct = Math.round(Math.min(lv, TANK_GAL) / TANK_GAL * 100), s = '<b>' + pct + '%</b> full' + (typed ? '' : ' at the last check');
+    var wg = pump.rates.well, pg = pump.rates.pool || 0;
+    if (lv >= TANK_GAL) return s + ' · the well only replaces what is used';
+    if (!isNum(wg)) return s;
+    var net = wg - pg, left = TANK_GAL - lv;
+    if (net > 0) return s + ' · about <b>' + (left / net).toFixed(1) + ' days</b> to full';
+    if (lv > TANK_RESERVE) return s + ' · draining, about <b>' + ((lv - TANK_RESERVE) / -net).toFixed(1) + ' days</b> to the ' + gal(TANK_RESERVE) + ' gal reserve';
+    return s + ' · at or below the ' + gal(TANK_RESERVE) + ' gal reserve';
+  }
+  /** Well vs pool (2026-10-10, Camelo: "the difference between what is pumped and what is put in the pool, at a glance").
+   *  Well = gal a day since the last well reading (the typed one, or the last two readings); pool = its meter over about the
+   *  same stretch. Tank full: the well only replaces what is used, so the gap is other use (clubhouse, leaks); otherwise the
+   *  gap goes into (or out of) the tank. Warning colors: other use from DELTA_WARN gal a day, red from DELTA_BAD; draining. */
+  var DELTA_WARN = 100, DELTA_BAD = 200;
+  function pumpDelta(w){
+    var rs = pump.readings || [], wl = rs.filter(function(r){ return r.type === 'well'; }), pl = rs.filter(function(r){ return r.type === 'pool'; });
+    if (!wl.length || pl.length < 2) return null;
+    var raw = $('epRead').value.trim().replace(/,/g, ''), v = raw === '' ? NaN : Number(raw), a, b, wg = null;
+    if (isFinite(v) && w && v !== Number(wl[0].reading) && w.ms > Date.parse(wl[0].timestamp)) {
+      a = Date.parse(wl[0].timestamp); b = w.ms; wg = (v - Number(wl[0].reading)) / ((b - a) / 3600000) * 24;
+    } else if (wl.length >= 2) {
+      a = Date.parse(wl[1].timestamp); b = Date.parse(wl[0].timestamp); wg = (Number(wl[0].reading) - Number(wl[1].reading)) / ((b - a) / 3600000) * 24;
     }
-    if (t === 'well') {
-      var tr = $('epTank').value.trim().replace(/,/g, ''), typed = tr !== '' && isFinite(Number(tr)), tk = pumpLast('well', 'tankLevel');
-      var lv = typed ? Number(tr) : tk ? Number(tk.tankLevel) : null;
-      if (lv !== null) {
-        var left = TANK_GAL - lv, s = '<b>' + Math.round(lv / TANK_GAL * 100) + '%</b> full' + (typed ? '' : ' (last known)');
-        var wg = pump.rates.well, pg = pump.rates.pool || 0;
-        if (left <= 0) s += ' · tank is at capacity';
-        else if (isNum(wg)) {
-          var net = wg - pg;
-          if (net > 0) s += ' · about <b>' + (left / net).toFixed(1) + '</b> days to full';
-          else if (lv > TANK_RESERVE) s += ' · draining, about <b>' + ((lv - TANK_RESERVE) / -net).toFixed(1) + '</b> days to the ' + gal(TANK_RESERVE) + ' gal reserve';
-          else s += ' · at or below the ' + gal(TANK_RESERVE) + ' gal reserve';
-        }
-        lines.push(s);
-      }
-    }
-    return lines.join('<br>');
+    if (wg === null || !isFinite(wg)) return null;
+    // pool: from its reading closest to the start of the well's stretch to its latest one (at least 12 hours apart)
+    var p1 = pl[0], p0 = null;
+    pl.forEach(function(r){ var t = Date.parse(r.timestamp); if (Date.parse(p1.timestamp) - t >= 12 * 3600000 && (!p0 || Math.abs(t - a) < Math.abs(Date.parse(p0.timestamp) - a))) p0 = r; });
+    if (!p0) return null;
+    var ph = (Date.parse(p1.timestamp) - Date.parse(p0.timestamp)) / 3600000, pg = (Number(p1.reading) - Number(p0.reading)) / ph * 24;
+    var tr = $('epTank').value.trim().replace(/,/g, ''), tk = pumpLast('well', 'tankLevel');
+    var full = $('epFull').checked || (tr !== '' ? Number(tr) >= TANK_GAL : !!(tk && Number(tk.tankLevel) >= TANK_GAL));
+    return {well: wg, pool: pg, d: wg - pg, full: full};
+  }
+  function pumpDeltaHtml(x){
+    if (!x) return '';
+    var d = Math.round(x.d), sum = 'Well ' + gal(x.well) + ' − pool ' + gal(x.pool) + ' = ', cls = '', what;
+    if (x.full) {
+      if (d < 0) { what = '<b>' + gal(d) + '</b> gal a day: the pool drew on the tank’s stored water'; }
+      else { what = '<b>' + gal(d) + ' gal a day</b> other use (clubhouse, leaks)'; cls = d >= DELTA_BAD ? 'bad' : d >= DELTA_WARN ? 'warn' : ''; }
+    } else if (d >= 0) what = '<b>+' + gal(d) + ' gal a day</b> into the tank';
+    else { what = '<b>' + gal(d) + ' gal a day</b> out of the tank'; cls = 'warn'; }
+    return '<span class="lbl">Well vs pool</span>' + sum + what + (cls === 'bad' ? '<br>Much more than usual: check for a leak.' : '');
+  }
+  function agoLong(iso){
+    var m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60); if (h < 24) return h + (h === 1 ? ' hour' : ' hours') + ' ago';
+    var d = Math.floor(h / 24), r = h - d * 24;
+    return d + (d === 1 ? ' day' : ' days') + (r ? ', ' + r + ' h' : '') + ' ago';
   }
   function pumpVals(){
     var raw = $('epRead').value.trim().replace(/,/g, ''), tr = pump.type === 'well' ? $('epTank').value.trim().replace(/,/g, '') : '';
@@ -6541,7 +6790,7 @@ document.addEventListener('DOMContentLoaded', function(){
       '<label for="eTime">Time<input id="eTime" type="time" value="' + n.time + '"></label></div>';
     // the answer first: CSI worked out as you type (2026-10-09)
     h += '<div class="ecsi hero" aria-live="polite"><div class="r1"><span class="lbl">Balance (CSI)</span><span class="epill none" id="eCsiPill">Waiting</span></div>' +
-      '<b id="eCsi">–</b><div class="ebar"><span class="ok" id="eCsiOk"></span><span class="dot" id="eCsiDot" hidden></span></div><div class="from" id="eCsiFrom"></div></div>';
+      '<b id="eCsi">–</b><div class="ebar"><span class="bds" id="eCsiBands"></span><span class="dot" id="eCsiDot" hidden></span></div><div class="from" id="eCsiFrom"></div></div>';
     function tile(f){
       return '<label class="etile" id="ew_' + f[0] + '" style="--c:var(--k-' + f[0] + ')"><span class="nm">' + f[1] + (f[2] ? '<i>' + f[2] + '</i>' : '') + '</span>' +
         '<input id="ei_' + f[0] + '" inputmode="decimal" enterkeyhint="next" placeholder="–" autocomplete="off" value="' + (t && isNum(t[f[0]]) ? fmtNum(t[f[0]]) : '') + '">' +
@@ -6599,7 +6848,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if (mode === 'pump') {
       var pv = pumpVals(), rOdd = pv.readRaw !== '' && !isFinite(pv.reading), tOdd = pv.tank !== '' && !(pv.tank >= 0 && pv.tank <= TANK_GAL * 1.1);
       $('epReadT').classList.toggle('odd', rOdd); $('epTankT').classList.toggle('odd', tOdd);
-      $('epInfo').innerHTML = rOdd ? '' : pumpInfo(when());
+      pumpFillBtn();
+      $('epReadH').innerHTML = rOdd ? '<span class="warn">That doesn’t look like a meter number.</span>' : pumpReadHint(when());
+      if (pump.type === 'well') {
+        $('epTankH').innerHTML = tOdd ? '<span class="warn">The tank holds ' + gal(TANK_GAL) + ' gal.</span>' : pumpTankHint();
+        var dx = rOdd ? null : pumpDelta(when()), dh = pumpDeltaHtml(dx), de = $('epDelta');
+        de.innerHTML = dh; de.hidden = !dh;
+        de.className = 'epdelta' + (dx && dh ? (dx.full ? (Math.round(dx.d) >= DELTA_BAD ? ' bad' : Math.round(dx.d) >= DELTA_WARN ? ' warn' : '') : (dx.d < 0 ? ' warn' : '')) : '');
+      }
       save.disabled = busy || !isFinite(pv.reading) || rOdd || tOdd;
       return;
     }
@@ -6621,16 +6877,29 @@ document.addEventListener('DOMContentLoaded', function(){
       return x === null ? '–' : fmtNum(x) + (f[0] === 'tempF' ? '°' : '');
     }).join(' · ');
     var p = anyOdd ? {text: 'Check the yellow box first.'} : csiPreview(r.v, w ? w.ms : Date.now(), skip);
-    $('eCsi').textContent = p.csi === undefined ? '–' : fmtNum(p.csi);
+    // until this test has a CSI of its own, the last known one sits there in grey (2026-10-12)
+    var old = p.csi === undefined ? lastOf('csi', 0, skip) : null, shown = old ? old.csi : p.csi;
+    $('eCsi').textContent = shown === undefined ? '–' : fmtNum(shown);
     $('eCsiFrom').textContent = p.text;
-    var cg = nowGreen('CSI') || {lo: -0.1, hi: 0.3}, px = function(x){ return Math.max(0, Math.min(100, (x + 0.6) / 1.2 * 100)); };
-    $('eCsiOk').style.left = px(cg.lo) + '%'; $('eCsiOk').style.width = (px(cg.hi) - px(cg.lo)) + '%';
+    var px = function(x){ return Math.max(0, Math.min(100, (x + 0.6) / 1.2 * 100)); };
+    // the bar: every color from the Ranges tab. The rows overlap and the first match wins, so ask colorOf() between each
+    // pair of breakpoints (as legendFor does) rather than drawing the rows themselves.
+    var cuts = [-0.6, 0.6];
+    bandsFor('CSI').forEach(function(b){ [b.min, b.max].forEach(function(x){ if (isNum(x) && x > -0.6 && x < 0.6 && cuts.indexOf(x) < 0) cuts.push(x); }); });
+    cuts.sort(function(a, b){ return a - b; });
+    var bars = '';
+    for (var ci = 0; ci < cuts.length - 1; ci++) {
+      var bc = colorOf('CSI', (cuts[ci] + cuts[ci + 1]) / 2);
+      if (bc) bars += '<i class="' + esc(bc) + '" style="left:' + px(cuts[ci]) + '%;width:' + (px(cuts[ci + 1]) - px(cuts[ci])) + '%"></i>';
+    }
+    $('eCsiBands').innerHTML = bars;
     var cc = p.csi === undefined ? '' : colorOf('CSI', p.csi), pill = $('eCsiPill');
     pill.className = 'epill ' + (cc || 'none');
-    pill.textContent = p.csi === undefined ? 'Waiting' : cc === 'green' ? 'Balanced' : cc === 'purple' ? 'High: may scale' :
+    pill.textContent = old ? 'Last test · ' + agoText(Math.max(0, daysBetween(old.day, todayCentral()))).toLowerCase() : p.csi === undefined ? 'Waiting' : cc === 'green' ? 'Balanced' : cc === 'purple' ? 'High: may scale' :
       cc === 'yellow' ? (p.csi < 0 ? 'A little low' : 'A little high') : cc === 'red' ? (p.csi < 0 ? 'Low: eats plaster' : 'Too high') : 'Worked out';
     $('eCsi').style.color = cc ? 'var(--k-csi)' : 'var(--muted)';
-    $('eCsiDot').hidden = p.csi === undefined; if (p.csi !== undefined) $('eCsiDot').style.left = px(p.csi) + '%';
+    $('eCsiDot').hidden = shown === undefined; $('eCsiDot').classList.toggle('old', !!old);
+    if (shown !== undefined) $('eCsiDot').style.left = px(shown) + '%';
     var nR = Object.keys(r.v).length;
     save.disabled = busy || !nR;
     if (!busy) save.textContent = editing ? 'Save changes' : nR ? 'Save ' + nR + ' reading' + (nR === 1 ? '' : 's') : 'Type a reading';
@@ -6687,6 +6956,16 @@ document.addEventListener('DOMContentLoaded', function(){
       }); });
       $('epRead').addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); if (pump.type === 'well') $('epTank').focus(); else $('epRead').blur(); } });
       $('epTank').addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); $('epTank').blur(); } });
+      // Tank is full: fills in the tank level and saves "Tank Full" in the note (the Pump Log turns the row green)
+      $('epFull').addEventListener('change', function(){
+        if (this.checked) $('epTank').value = String(TANK_GAL);
+        else if (Number($('epTank').value.replace(/,/g, '')) >= TANK_GAL) $('epTank').value = '';
+        refresh();
+      });
+      $('epTank').addEventListener('input', function(){ var v = Number(this.value.replace(/,/g, '')); $('epFull').checked = this.value.trim() !== '' && v >= TANK_GAL; });
+      $('epFill').addEventListener('click', function(){
+        var f = lastFillTime(); $('eDate').value = f.day; $('eTime').value = f.time; refresh();
+      });
       pumpFill(true); pumpLoad();
     }
     FIELDS.forEach(function(f, i){
@@ -6699,6 +6978,7 @@ document.addEventListener('DOMContentLoaded', function(){
       });
     });
     refresh();
+    if (kind === 'test' || kind === 'chem' || kind === 'pump') wakeOn(); else wakeOff();
     var r = originRect();
     grow.classList.remove('big'); grow.style.transition = 'none'; place(r, Math.min(30, r.height / 2)); grow.hidden = false;
     if (fromEl && fromEl.classList.contains('eact')) fromEl.classList.add('hold');
@@ -6706,7 +6986,25 @@ document.addEventListener('DOMContentLoaded', function(){
     requestAnimationFrame(function(){ place(full(), panelRad()); grow.classList.add('big'); body.scrollTop = 0; });
     setTimeout(function(){ try { $('eX').focus({preventScroll: true}); } catch(e){} }, reduce ? 0 : 340);
   }
-  function shut(){ grow.hidden = true; document.querySelectorAll('.eact.hold').forEach(function(b){ b.classList.remove('hold'); }); setOpen(false); setMenu(false); }
+  // Screen stays awake while Log test, Add chemical or Log pump reading is open (2026-10-12): let go on save / close or
+  // after 20 minutes; asked again when the app comes back to the front (the phone drops it when the page is hidden).
+  // Does nothing where the browser has no Screen Wake Lock (iPhone before iOS 18.4).
+  var wake = null, wakeWant = false, wakeAsking = false, wakeT = null;
+  function wakeAsk(){
+    if (!wakeWant || wake || wakeAsking || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+    wakeAsking = true;
+    try {
+      navigator.wakeLock.request('screen').then(function(l){
+        wakeAsking = false;
+        if (!wakeWant) { l.release(); return; }
+        wake = l; l.addEventListener('release', function(){ if (wake === l) wake = null; });
+      }, function(){ wakeAsking = false; });
+    } catch (e) { wakeAsking = false; }
+  }
+  function wakeOn(){ wakeWant = true; clearTimeout(wakeT); wakeT = setTimeout(wakeOff, 20 * 60000); wakeAsk(); }
+  function wakeOff(){ wakeWant = false; clearTimeout(wakeT); if (wake) { try { wake.release(); } catch (e) {} wake = null; } }
+  document.addEventListener('visibilitychange', wakeAsk);
+  function shut(){ wakeOff(); grow.hidden = true; document.querySelectorAll('.eact.hold').forEach(function(b){ b.classList.remove('hold'); }); setOpen(false); setMenu(false); }
 
   // ---- the Volunteers panel (Manager): accessVolunteerList / accessVolunteerAction in Access. Names come from the public
   // sign-up, so everything goes on the page as text, never as HTML.
@@ -6857,7 +7155,9 @@ document.addEventListener('DOMContentLoaded', function(){
   function savePump(w){
     var pv = pumpVals();
     if (!isFinite(pv.reading)) { say('Enter the meter reading.', 'err'); return; }
-    var payload = {type: pump.type, reading: pv.reading, localDateTime: w.s, notes: $('epNote').value, name: ''};
+    var note = $('epNote').value.trim();
+    if (pump.type === 'well' && $('epFull').checked && !/tank full/i.test(note)) note = 'Tank Full' + (note ? '; ' + note : '');
+    var payload = {type: pump.type, reading: pv.reading, localDateTime: w.s, notes: note, name: ''};
     if (pump.type === 'well' && pv.tank !== '') payload.tankLevel = pv.tank;
     closePanel();
     bgRun((pump.type === 'well' ? 'Well' : 'Pool') + ' reading', function(ok, fail){ pumpCall('addReading', [CODE, payload], ok, fail); },
