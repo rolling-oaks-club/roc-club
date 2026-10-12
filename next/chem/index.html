@@ -3755,6 +3755,93 @@ function nowTempModel(){
   return best;
 }
 
+/* ---- the past line follows the chemistry (FC and pH, 2026-10-12). Between two tests under 7 days apart the chart runs the
+   same model as the estimate (FC: sun burn + use with the fitted a / b; pH: its steady rise less the acid), with a quick
+   addition arriving over 30 minutes (mixing) and feeders on their release curves, then bends it to land on the second
+   test: too high = the losses are scaled up (pH: the rise down, then the acid up), too low = the losses down, then the
+   additions up. Display only: nowFcModel / nowPhRate keep fitting on the tests themselves, never on this line.
+   Returns {testA.ms: {b, pts: [{ms, v}] between the two tests, shaped: a quick addition is in it, jumps: [{ms, v}]}}. */
+var NOW_PAST_GAP = 7 * DAYMS, NOW_MIX = 30 * 60000;
+function nowPastGrid(a, b, now, quick){
+  var ts = [b];
+  for (var t = a + (now - a < 14 * DAYMS ? 1 : 3) * HR; t < b; t += (now - t < 14 * DAYMS ? 1 : 3) * HR) ts.push(t);
+  quick.forEach(function(x){ [x.ms, x.ms + NOW_MIX].forEach(function(t){ if (t > a && t < b) ts.push(t); }); });
+  ts.sort(function(p, q){ return p - q; });
+  return ts.filter(function(t, i){ return t === b || (b - t > 60000 && (!i || t - ts[i - 1] > 60000)); });
+}
+function nowMixed(x, t){ return Math.max(0, Math.min(1, (t - x.ms) / NOW_MIX)); }
+function nowSolve(f, lo, hi){            // f falls as x grows: the x where it crosses 0
+  for (var i = 0; i < 36; i++) { var m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+function nowPastOut(A, B, grid, vals, quick, floor){
+  var d = B.v - vals[vals.length - 1], pts = [];
+  for (var i = 0; i < grid.length - 1; i++) {
+    var v = vals[i] + d * (grid[i] - A.ms) / (B.ms - A.ms);
+    pts.push({ms: grid[i], v: floor === undefined ? v : Math.max(floor, v)});
+  }
+  return {b: B.ms, pts: pts, shaped: quick.length > 0, jumps: quick.map(function(x){
+    var t = Math.min(B.ms, x.ms + NOW_MIX), p = pts.filter(function(q){ return q.ms >= t - 1000; })[0];
+    return {ms: x.ms, v: p ? p.v : B.v};
+  })};
+}
+function nowPast(cs, k, al, be, rate){
+  var T = nowTests(k), now = Date.now(), out = {}, f = k === 'fc' ? 'fc' : 'acid';
+  var mine = cs.filter(function(x){ return x.fx[f]; });
+  for (var n = 1; n < T.length; n++) {
+    var A = {ms: T[n - 1].ms, v: T[n - 1][k]}, B = {ms: T[n].ms, v: T[n][k]}, g = B.ms - A.ms;
+    if (g >= NOW_PAST_GAP || g < 10 * 60000 || now - B.ms > 366 * DAYMS) continue;
+    var near = mine.filter(function(x){ return x.ms <= B.ms && x.ms > A.ms - 120 * DAYMS; });
+    var slow = near.filter(function(x){ return x.slow; }), quick = near.filter(function(x){ return !x.slow && x.ms > A.ms; });
+    var grid = nowPastGrid(A.ms, B.ms, now, quick), res = null;
+    if (k === 'fc') res = nowPastFc(A, B, grid, slow, quick, al, be);
+    else res = nowPastPh(A, B, grid, slow, quick, rate);
+    if (res) out[A.ms] = res;
+  }
+  return out;
+}
+function nowPastFc(A, B, grid, slow, quick, al, be){
+  var h = [], sun = [], add = [], t = A.ms, sum = 0;
+  grid.forEach(function(t2){
+    var a = nowSum(slow, 'fc', t, t2);
+    quick.forEach(function(x){ a += x.fx.fc * (nowMixed(x, t2) - nowMixed(x, t)); });
+    h.push((t2 - t) / HR); sun.push(nowSun(t2)); add.push(a); sum += a; t = t2;
+  });
+  var run = function(kL, kA, keep){
+    var fc = A.v, vals = [];
+    for (var i = 0; i < grid.length; i++) {
+      fc += add[i] * kA;
+      fc = Math.max(0, fc * Math.exp(-al * kL * sun[i] * h[i]) - be * kL * h[i]);
+      if (keep) vals.push(fc);
+    }
+    return keep ? vals : fc;
+  };
+  var kL = 1, kA = 1, e = run(1, 1);
+  if (e > B.v) { var hi = 2; while (hi < 500 && run(hi, 1) > B.v) hi *= 2; kL = nowSolve(function(x){ return run(x, 1) - B.v; }, 1, hi); }
+  else if (e < B.v) {
+    if (run(0, 1) >= B.v) kL = nowSolve(function(x){ return run(x, 1) - B.v; }, 0, 1);
+    else if (sum > 0) { kL = 0; kA = (B.v - A.v) / sum; }
+    else return null;                                             // it rose with nothing logged: the plain curve
+  }
+  return nowPastOut(A, B, grid, run(kL, kA, true), quick, 0);
+}
+function nowPastPh(A, B, grid, slow, quick, rate){
+  var ta = nowLastBefore('ta', A.ms, 45 * DAYMS), cy = nowLastBefore('cya', A.ms, 45 * DAYMS);
+  var acid = grid.map(function(t){
+    var a = nowSum(slow, 'acid', A.ms, t);
+    quick.forEach(function(x){ a += x.fx.acid * nowMixed(x, t); });
+    return a;
+  });
+  var drop = function(i, kA){ return ta && acid[i] > 0 ? (nowPhDrop(A.v, ta.ta, cy ? cy.cya : 0, acid[i] * kA) || 0) : 0; };
+  var last = grid.length - 1, rise = B.v - A.v + drop(last, 1), kA = 1;
+  if (rise < 0) {                                                 // lower than the acid alone explains: no rise, more acid effect
+    if (!(drop(last, 1) > 0)) return null;
+    var hi = 2; while (hi < 64 && A.v - drop(last, hi) > B.v) hi *= 2;
+    kA = nowSolve(function(x){ return A.v - drop(last, x) - B.v; }, 1, hi); rise = 0;
+  }
+  return nowPastOut(A, B, grid, grid.map(function(t, i){ return A.v + rise * (t - A.ms) / (B.ms - A.ms) - drop(i, kA); }), quick);
+}
+
 /* ---- the whole picture */
 function nowModel(){
   var key = (DATA.tests || []).length + '|' + (DATA.chems || []).length + '|' + (nowWx ? nowWx.at : 0) + '|' + Math.floor(Date.now() / (10 * 60000));
@@ -3765,7 +3852,7 @@ function nowModel(){
   if (lastFc) {
     var run = nowFcRun(lastFc.fc, nowFcSteps(cs, lastFc.ms, now), fcm.al, fcm.be, true);
     var fut = nowFcRun(run.fc, nowFcSteps(cs, now, now + 36 * HR), fcm.al, fcm.be, true);
-    M.r.fc = {last: lastFc, v: run.fc, run: run, fut: fut.path, m: fcm};
+    M.r.fc = {last: lastFc, v: run.fc, run: run, fut: fut.path, m: fcm, past: nowPast(cs, 'fc', fcm.al, fcm.be)};
   }
   // pH
   var rate = nowPhRate(cs), lastPh = nowTests('ph').pop();
@@ -3778,7 +3865,7 @@ function nowModel(){
     var pn = phAt(now), path = [];
     for (var t = lastPh.ms + 3 * HR; t < now; t += 3 * HR) path.push({ms: t, v: phAt(t).v});
     path.push({ms: now, v: pn.v});
-    M.r.ph = {last: lastPh, v: pn.v, drop: pn.drop, acid: pn.acid, rise: rate * (now - lastPh.ms) / HR, rate: rate, path: path};
+    M.r.ph = {last: lastPh, v: pn.v, drop: pn.drop, acid: pn.acid, rise: rate * (now - lastPh.ms) / HR, rate: rate, path: path, past: nowPast(cs, 'ph', 0, 0, rate)};
   }
   // TA, CH, CYA, CC: the last test plus what was added since, plus their own slow drift (refill water, splash-out)
   [['ta', function(a, b){ return nowSum(cs, 'alk', a, b) - nowSum(cs, 'acid', a, b); }, 1, 3],
@@ -3894,6 +3981,7 @@ function nowCurve(pts){
   }
   return d;
 }
+var nowLineLook = (/[?&]line=([A-D])\b/.exec(location.search) || [])[1] || 'D';
 function nowChart(o){
   var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? 120 : 92) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
@@ -3903,6 +3991,7 @@ function nowChart(o){
   (o.est || []).forEach(function(p){ vals.push(p.v); });
   (o.fut || []).forEach(function(p){ if (p.ms <= x1) vals.push(p.v); });
   (o.model || []).forEach(function(p){ if (p.ms >= x0 && p.ms <= x1) vals.push(p.v); });
+  if (o.past) o.pts.forEach(function(p){ var sg = o.past[p.ms]; if (sg && sg.b >= x0) sg.pts.forEach(function(q){ if (q.ms >= x0) vals.push(q.v); }); });
   var lo = Math.min.apply(null, vals.concat(o.band ? [o.band.lo] : [])), hi = Math.max.apply(null, vals.concat(o.band ? [o.band.hi] : []));
   if (!isFinite(lo) || !isFinite(hi)) return '';
   if (o.floor !== undefined) lo = Math.max(o.floor, lo);
@@ -3952,11 +4041,26 @@ function nowChart(o){
   var pts = o.pts.filter(function(p){ return p.ms >= x0; });
   var prev = o.pts.filter(function(p){ return p.ms < x0; }).pop();
   if (!o.model) {
-    var line = (prev ? [{ms: x0, v: prev.v + (pts[0] ? (pts[0].v - prev.v) * (x0 - prev.ms) / (pts[0].ms - prev.ms) : 0)}] : []).concat(pts);
+    // the past line: through the tests, and between two tests the model's points where it has them (o.past, FC and pH)
+    var pastOf = function(p){ return o.past && o.past[p.ms] || null; };
+    var first = prev && pastOf(prev) ? prev : prev ? {ms: x0, v: prev.v + (pts[0] ? (pts[0].v - prev.v) * (x0 - prev.ms) / (pts[0].ms - prev.ms) : 0)} : null;
+    var line = [], runs = [], XY = function(p){ return [X(p.ms), Y(p.v)]; };
+    (first ? [first] : []).concat(pts).forEach(function(p, i, all){
+      line.push(p);
+      var sg = all[i + 1] ? pastOf(p) : null, mid = sg ? sg.pts.filter(function(q){ return q.ms > x0 - 6 * HR; }) : [];
+      if (all[i + 1]) runs.push({pts: [p].concat(mid, [all[i + 1]]), sg: sg && sg.shaped ? sg : null});
+      line = line.concat(mid);
+    });
     if (line.length > 1) {
-      var d1 = nowCurve(line.map(function(p){ return [X(p.ms), Y(p.v)]; }));
+      var d1 = nowCurve(line.map(XY)), look = o.past ? nowLineLook : '', lineAt = function(d, more){ return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (more || '') + '/>'; };
       s += '<path d="' + d1 + ' L' + X(line[line.length - 1].ms).toFixed(1) + ' ' + (top + ih) + ' L' + X(line[0].ms).toFixed(1) + ' ' + (top + ih) + ' Z" fill="' + col + '" opacity=".08"/>';
-      s += '<path d="' + d1 + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+      // PREVIEW (2026-10-12): four looks for a stretch shaped by an addition, picked with ?line=A|B|C|D until one is chosen
+      if (look === 'A' || look === 'B') runs.forEach(function(r){ s += lineAt(nowCurve(r.pts.map(XY)), !r.sg ? '' : look === 'A' ? ' opacity=".45"' : ' stroke-dasharray="5 4"'); });
+      else {
+        if (look === 'C') runs.forEach(function(r){ if (r.sg) s += '<path d="' + nowCurve(r.pts.map(XY)) + '" fill="none" stroke="' + col + '" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".16"/>'; });
+        s += lineAt(d1);
+        if (look === 'D') runs.forEach(function(r){ if (r.sg) r.sg.jumps.forEach(function(j){ if (j.ms >= x0) s += '<line x1="' + X(j.ms).toFixed(1) + '" x2="' + X(j.ms).toFixed(1) + '" y1="' + (top + ih - 7) + '" y2="' + Y(j.v).toFixed(1) + '" stroke="' + col + '" stroke-width="1" opacity=".55"/>'; }); });
+      }
     }
     if (o.est && o.est.length && pts.length) {
       var e = [pts[pts.length - 1]].concat(o.est);
@@ -4033,7 +4137,7 @@ function nowTile(M, def){
   var pts = nowTests(k).map(function(t){ return {ms: t.ms, v: t[k]}; });
   var f = k === 'ta' ? 'ta' : k === 'ph' ? 'ph' : k;
   var chartO = {k: k, name: def[1], span: NOW_SPAN[k], band: band, pts: pts, est: est ? (r.run ? r.run.path : r.path) : null, nowV: est ? r.v : null, unsure: unsure,
-    adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined};
+    adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined, past: r.past};
   if (k === 'ph') delete chartO.floor;
   var foot = '', how = '', todo = '', extra = '';
   var tested = 'Tested ' + nowFmt(k, r.last[k]) + '<span data-d> · ' + esc(nowWhen(r.last)) + '</span>';
