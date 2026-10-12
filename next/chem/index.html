@@ -1285,6 +1285,27 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .etoast.err .etx{display:block}
 .etoast .etry[hidden]{display:none}
 @keyframes espin{to{transform:rotate(360deg)}}
+/* entries saved on this phone, waiting to reach the server (2026-10-12): cards at the top of the page, their numbers pulsing */
+#outbox:empty{display:none}
+#outbox{padding-top:50px}          /* room for the status pill, which floats over the top of the page */
+.owait{border:1.5px dashed color-mix(in srgb,var(--accent) 45%,transparent)}
+.owait .oh{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2)}
+.owait .oh b{color:var(--ink);font-weight:600}
+.owait .oh .osp{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid color-mix(in srgb,var(--accent) 25%,transparent);border-top-color:var(--accent);animation:espin .8s linear infinite;box-sizing:border-box}
+.owait .ochips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.owait .ochip{border-radius:10px;padding:4px 9px;background:var(--soft);font-size:13px;color:var(--ink2);animation:opulse 1.5s ease-in-out infinite}
+.owait .ochip b{color:var(--ink);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
+.owait .otxt{margin-top:6px;font-size:14px;color:var(--ink2);animation:opulse 1.5s ease-in-out infinite;white-space:pre-wrap;overflow-wrap:anywhere}
+.owait.err{border-color:color-mix(in srgb,var(--red) 55%,transparent)}
+.owait.err .osp{animation:none;border:0;background:var(--red)}
+.owait.err .ochip,.owait.err .otxt{animation:none}
+.owait .oerr{margin-top:8px;font-size:13.5px;color:var(--red);font-weight:500}
+.owait .obtn{display:flex;gap:8px;margin-top:8px}
+.owait .obtn button{border:0;border-radius:14px;font:inherit;font-size:14px;font-weight:600;padding:6px 12px;cursor:pointer;background:var(--soft);color:var(--ink)}
+.owait .obtn button[data-oretry]{background:var(--accent);color:var(--accentInk)}
+@keyframes opulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.owait .ochip,.owait .otxt,.owait .oh .osp{animation:none}}
+@media print{#outbox{display:none}}
 @media (prefers-reduced-motion:reduce){.etile,.ebar .dot,.efold::after,.esw,.esw::after,.etoast{transition:none}.etoast.busy .eti{animation:none}}
 /* the ⋯ on a dashboard entry (in the card's top line) and its menu's heading lines */
 #emBody{display:contents}
@@ -1718,6 +1739,7 @@ dialog.pop.wide{max-width:1040px}
 </div></header>
 <div class="wrap">
   <div id="status" class="status" role="status"></div>
+  <div id="outbox" aria-live="polite"></div>
   <div class="gate pub" id="gate">
     <h2>Pool Chemistry</h2>
     <p>For Rolling Oaks Club members.<br>Sign in with your pool key (Letter and Number)<br>Board Members use Board Password</p>
@@ -3981,7 +4003,6 @@ function nowCurve(pts){
   }
   return d;
 }
-var nowLineLook = (/[?&]line=([A-D])\b/.exec(location.search) || [])[1] || 'D';
 function nowChart(o){
   var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? 120 : 92) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
@@ -4052,15 +4073,15 @@ function nowChart(o){
       line = line.concat(mid);
     });
     if (line.length > 1) {
-      var d1 = nowCurve(line.map(XY)), look = o.past ? nowLineLook : '', lineAt = function(d, more){ return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (more || '') + '/>'; };
+      var d1 = nowCurve(line.map(XY)), lineAt = function(d, more){ return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (more || '') + '/>'; };
       s += '<path d="' + d1 + ' L' + X(line[line.length - 1].ms).toFixed(1) + ' ' + (top + ih) + ' L' + X(line[0].ms).toFixed(1) + ' ' + (top + ih) + ' Z" fill="' + col + '" opacity=".08"/>';
-      // PREVIEW (2026-10-12): four looks for a stretch shaped by an addition, picked with ?line=A|B|C|D until one is chosen
-      if (look === 'A' || look === 'B') runs.forEach(function(r){ s += lineAt(nowCurve(r.pts.map(XY)), !r.sg ? '' : look === 'A' ? ' opacity=".45"' : ' stroke-dasharray="5 4"'); });
-      else {
-        if (look === 'C') runs.forEach(function(r){ if (r.sg) s += '<path d="' + nowCurve(r.pts.map(XY)) + '" fill="none" stroke="' + col + '" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".16"/>'; });
-        s += lineAt(d1);
-        if (look === 'D') runs.forEach(function(r){ if (r.sg) r.sg.jumps.forEach(function(j){ if (j.ms >= x0) s += '<line x1="' + X(j.ms).toFixed(1) + '" x2="' + X(j.ms).toFixed(1) + '" y1="' + (top + ih - 7) + '" y2="' + Y(j.v).toFixed(1) + '" stroke="' + col + '" stroke-width="1" opacity=".55"/>'; }); });
-      }
+      // a stretch shaped by a quick addition is the model's guess at what happened in between: dashed, on a soft band
+      // (picked from four looks, 2026-10-12); the rest stays a solid line
+      runs.forEach(function(r){
+        var d = nowCurve(r.pts.map(XY));
+        if (r.sg) s += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".16"/>';
+        s += lineAt(d, r.sg ? ' stroke-dasharray="5 4"' : '');
+      });
     }
     if (o.est && o.est.length && pts.length) {
       var e = [pts[pts.length - 1]].concat(o.est);
@@ -5219,6 +5240,7 @@ function applyUnlocked(data, code, res){
   try { localStorage.setItem('rocChemData', JSON.stringify({ level: LEVEL, who: WHO, data: data })); } catch(e){}
   document.body.classList.toggle('is-vol', !!(res && res.vol));   // own login: My login
   setWaiting(res && (res.level || data.level) === 'manager' ? res.pending : 0);
+  if (window.outWake) outWake();
 }
 function lockNow(msg){
   CODE = ''; forgetCode(); document.body.classList.remove('is-vol'); setWaiting(0);
@@ -7190,10 +7212,12 @@ document.addEventListener('DOMContentLoaded', function(){
   window.addEventListener('resize', function(){ if (!grow.hidden && grow.classList.contains('big')) place(full(), panelRad()); });
 
   function say(text, cls){ msg.textContent = text; msg.className = 'emsg' + (cls ? ' ' + cls : ''); }
-  // Saving in the background (2026-10-09): once the checks pass, the panel closes at once and the entry is sent; a small
-  // status pill at the top says "Saving test…", then "Test saved", or what went wrong with Try again (sends the same
-  // entry again, so nothing typed is lost). Several saves at once are counted.
-  var bgN = 0, toastT = null;
+  // Saved on the phone first (2026-10-12; before, 2026-10-09, the entry lived only in the open page and "no connection"
+  // meant tapping Try again). Once the checks pass the panel closes and the entry goes into the outbox: kept in this
+  // phone's storage and sent, oldest first, until the server answers. The status pill at the top says "Syncing… please
+  // keep the app open", then "All synced"; the entry shows at the top of the page, pulsing, until it is in. Only a real
+  // "no" from the server (sign-in, level, a bad number) is shown as a problem, with Try again / Discard on its card.
+  var toastT = null;
   function toast(kind, text, retry){
     var t = $('eToast'); clearTimeout(toastT);
     if (!kind){ t.classList.remove('on'); toastT = setTimeout(function(){ t.hidden = true; }, 250); return; }
@@ -7203,27 +7227,112 @@ document.addEventListener('DOMContentLoaded', function(){
     if (kind === 'ok') toastT = setTimeout(function(){ toast(''); }, 2600);
   }
   $('eToastX').addEventListener('click', function(){ toast(''); });
-  /** send(ok, fail) does the call; done(res) takes the answer in. */
-  function bgRun(label, send, done){
-    bgN++;
-    toast('busy', bgN > 1 ? 'Saving ' + bgN + ' entries…' : 'Saving ' + label.toLowerCase() + '…');
-    send(function(res){
-      bgN--;
-      if (res && res.ok === false && res.why && res.why !== 'level') { toast(''); handleDenied(res); return; }
-      if (!res || !res.ok) { toast('err', label + ' not saved: ' + ((res && res.message) || 'the server said no.'), function(){ bgRun(label, send, done); }); return; }
-      done(res);
-      if (bgN) toast('busy', 'Saving ' + bgN + ' more…'); else toast('ok', label + ' saved');
-    }, function(){
-      bgN--;
-      toast('err', label + ' not saved: no connection.', function(){ bgRun(label, send, done); });
-    });
+  /* The outbox. Each entry: {id, kind, fn, payload, label, code, who, at, chips, text, when, edit, err, sign}.
+     A new entry carries its own ID (payload.nid; a pump reading: payload.id), made here, so the server can tell a repeat
+     from a new one and skip it (Code.gs newEntryId_, Well Log Tool addReading); an edit is a replace, safe to repeat anyway.
+     It is sent with the sign-in of the person who typed it. CHEM_API: the GitHub page posts straight to the web app with
+     keepalive, so a send survives the app being closed (the build fills it in; empty inside Apps Script = serverCall). */
+  var OUT_KEY = 'rocChemOutbox', CHEM_API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec';
+  var out = outLoad(), outBusy = {}, outFailed = false, outHad = false, outSaid = '';
+  function outLoad(){ try { var a = JSON.parse(localStorage.getItem(OUT_KEY) || '[]'); return Array.isArray(a) ? a.filter(function(e){ return e && e.id && e.fn && e.payload; }) : []; } catch(e){ return []; } }
+  function outKeep(){ try { localStorage.setItem(OUT_KEY, JSON.stringify(out)); } catch(e){} }
+  function outId(){
+    var abc = 'abcdefghijklmnopqrstuvwxyz0123456789', n = [], t = 'roc-';
+    try { n = crypto.getRandomValues(new Uint8Array(20)); } catch(e){ for (var i = 0; i < 20; i++) n.push(Math.floor(Math.random() * 256)); }
+    for (var j = 0; j < 20; j++) t += abc[n[j] % 36];
+    return t;
   }
+  function outPost(url, fn, args, ok, fail){
+    fetch(url, {method: 'POST', keepalive: true, body: JSON.stringify({fn: fn, args: args}), headers: {'Content-Type': 'text/plain;charset=utf-8'}})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (j && 'value' in j) ok(j.value); else throw new Error((j && j.error) || 'No reply'); })
+      .catch(fail);
+  }
+  function outAdd(e){
+    e.id = e.id || outId(); e.code = CODE; e.who = DATA.me || WHO; e.at = Date.now();
+    out.push(e); outKeep(); outFailed = false; outDraw(); outPump();
+  }
+  function outDrop(e){ out = out.filter(function(x){ return x.id !== e.id; }); delete outBusy[e.id]; outKeep(); }
+  function outSend(e){
+    if (e.err || (outBusy[e.id] && Date.now() - outBusy[e.id] < 90000)) return;
+    outBusy[e.id] = Date.now(); outHad = true;
+    var args = [e.code, e.payload];
+    var ok = function(res){
+      delete outBusy[e.id];
+      if (res && res.ok) {
+        outDrop(e); outFailed = false;
+        if (e.kind === 'pump') { if (pump.readings && res.entry) pump.readings.unshift(res.entry); }
+        else if (res.data && e.code === CODE) { DATA = res.data; renderAll(); }
+        outDraw(); outPump(); return;
+      }
+      if (res && res.retry) { outFailed = true; outDraw(); return; }                 // busy: the timer sends it again
+      if (res && res.ok === false && res.why && res.why !== 'level') {               // this sign-in no longer works
+        if (e.code === CODE) handleDenied(res);
+        e.sign = true; e.err = 'Sign in again as ' + firstName(e.who) + ' to send this.';
+      } else e.err = (res && res.message) || 'The server said no.';
+      outKeep(); outDraw(); outPump();
+    };
+    var fail = function(){ delete outBusy[e.id]; outFailed = true; outDraw(); };
+    if (e.kind === 'pump') outPost(PUMP_API, e.fn, args, ok, fail);
+    else if (CHEM_API) outPost(CHEM_API, e.fn, args, ok, fail);
+    else serverCall(e.fn, args, ok, fail);
+  }
+  /** Send what is waiting: one at a time, oldest first; all = everything at once (the app is going to the background). */
+  function outPump(all){
+    var me = DATA.me || WHO;
+    out.forEach(function(e){ if (e.sign && CODE && sameName(e.who, me)) { e.code = CODE; delete e.sign; delete e.err; } });   // signed in again
+    var todo = out.filter(function(e){ return !e.err; });
+    if (!todo.length) return;
+    if (all) { todo.forEach(outSend); return; }
+    if (!todo.some(function(e){ return outBusy[e.id] && Date.now() - outBusy[e.id] < 90000; })) outSend(todo[0]);
+  }
+  window.outWake = function(){ outPump(); outDraw(); };
+  function outWhen(s){
+    var m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(s || ''); if (!m) return '';
+    var h = +m[2];
+    return fmtDayRel(m[1]) + ', ' + ((h % 12) || 12) + ':' + m[3] + (h < 12 ? ' AM' : ' PM');
+  }
+  /** The status pill, only when its words change (so the 20-second look doesn't make it blink or bring back one that was closed). */
+  function outSay(kind, text){ if (text === outSaid) return; outSaid = text; toast(kind, text); }
+  function outDraw(){
+    var todo = out.filter(function(e){ return !e.err; }), bad = out.filter(function(e){ return e.err; });
+    $('outbox').innerHTML = out.map(function(e){
+      return '<div class="card owait' + (e.err ? ' err' : '') + '" data-oid="' + esc(e.id) + '"><div class="oh"><span class="osp" aria-hidden="true"></span><span><b>' + esc((e.edit ? 'Change to ' + e.label.toLowerCase() : e.label)) + '</b> · ' + esc(outWhen(e.when)) +
+        (e.who ? ' · ' + esc(firstName(e.who)) : '') + (e.err ? '' : ' · waiting to sync' + (outFailed || navigator.onLine === false ? ' (it goes by itself when the signal is back)' : '')) + '</span></div>' +
+        ((e.chips || []).length ? '<div class="ochips">' + e.chips.map(function(c){ return '<span class="ochip">' + esc(c[0]) + '<b>' + esc(c[1]) + '</b></span>'; }).join('') + '</div>' : '') +
+        (e.text ? '<div class="otxt">' + esc(e.text) + '</div>' : '') +
+        (e.err ? '<div class="oerr">Not saved: ' + esc(e.err) + '</div><div class="obtn">' + (e.sign ? '' : '<button type="button" data-oretry>Try again</button>') + '<button type="button" data-odrop>Discard</button></div>' : '') + '</div>';
+    }).join('');
+    if (todo.length) {
+      var old = todo.filter(function(e){ return Date.now() - e.at > 22 * 3600000; }).length;
+      var n = todo.length > 1 ? todo.length + ' entries' : todo[0].label.toLowerCase();
+      if (old) outSay('err', (todo.length > 1 ? todo.length + ' entries have' : 'An entry has') + ' waited since ' + fmtDayRel(dayOfMs(todo[0].at)).toLowerCase() + '. Open the app where there is signal.');
+      else if (outFailed || navigator.onLine === false) outSay('busy', 'No signal: saved on this phone');
+      else outSay('busy', 'Syncing ' + (todo.length > 1 ? n : '') + '… please keep the app open');
+    } else if (bad.length) outSay('err', (bad.length > 1 ? bad.length + ' entries' : bad[0].label) + ' not saved: see the top of the page');
+    else if (outHad) { outHad = false; outSaid = ''; toast('ok', 'All synced'); }
+    else outSaid = '';
+  }
+  $('outbox').addEventListener('click', function(ev){
+    var card = ev.target.closest('[data-oid]'); if (!card) return;
+    var e = out.filter(function(x){ return x.id === card.getAttribute('data-oid'); })[0]; if (!e) return;
+    if (ev.target.closest('[data-odrop]')) { if (confirm('Discard this ' + e.label.toLowerCase() + '? It was not saved and will be gone.')) { outDrop(e); outSaid = ''; toast(''); outDraw(); } }
+    else if (ev.target.closest('[data-oretry]')) { delete e.err; outKeep(); outFailed = false; outDraw(); outPump(); }
+  });
+  // again: when the signal is back, when the app comes to the front or goes away (then everything at once, each send
+  // outliving the page), from another tab's change, and every 20 seconds while something waits
+  window.addEventListener('online', function(){ outFailed = false; outDraw(); outPump(); });
+  window.addEventListener('pagehide', function(){ outPump(true); });
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') outPump(true); else { outDraw(); outPump(); } });
+  window.addEventListener('storage', function(ev){ if (ev.key === OUT_KEY) { out = outLoad(); outDraw(); } });
+  setInterval(function(){ if (out.length) { outPump(); if (document.visibilityState === 'visible') outDraw(); } }, 20000);
+  setTimeout(function(){ if (out.length) { outHad = true; outDraw(); outPump(); } }, 1500);
   save.addEventListener('click', function(){
     if (busy) return;
     var w = when();
     if (!w) { say('Fill in the date and time.', 'err'); return; }
     if (w.ms > Date.now() + 5 * 60000) { say('The date and time can\'t be in the future.', 'err'); return; }
-    var fn, payload, label;
+    var fn, payload, label, chips = [], text = '';
     if (mode === 'pump') { savePump(w); return; }
     if (mode === 'chem') {
       var ck = chemCheck();
@@ -7235,6 +7344,7 @@ document.addEventListener('DOMContentLoaded', function(){
       payload = {id: editing ? editing.id : '', when: w.s, items: chem.items.map(function(it){
         return {product: it.name, amount: chemAmt(it), unit: chemUnit(it), strength: it.info.sMode === 'entry' ? chemPct(it) : '', slow: !!it.slow};
       })};
+      chips = payload.items.map(function(it){ return [it.product, fmtNum(Number(it.amount)) + ' ' + it.unit]; });
       if (!editing) payload.note = $('eNote').value;
       fn = 'saveChems'; label = chem.items.length > 1 ? 'Chemicals' : 'Chemical';
     } else if (mode === 'test') {
@@ -7247,13 +7357,16 @@ document.addEventListener('DOMContentLoaded', function(){
       payload = {id: editing ? editing.id : '', when: w.s};
       FIELDS.forEach(function(f){ payload[f[0]] = isNum(r.v[f[0]]) ? r.v[f[0]] : ''; });
       if (!editing) { payload.note = $('eNote').value; payload.store = $('eStore').checked; }
+      FIELDS.forEach(function(f){ if (isNum(r.v[f[0]])) chips.push([f[1], fmtNum(r.v[f[0]])]); });
       fn = 'saveTest'; label = 'Test';
     } else {
       payload = {id: editing ? editing.id : '', when: w.s, text: $('eNote').value};
-      fn = 'saveNote'; label = 'Note';
+      fn = 'saveNote'; label = 'Note'; text = payload.text.trim().slice(0, 200);
     }
+    if (!editing) payload.nid = outId();
+    var entry = {id: payload.nid, kind: mode, fn: fn, payload: payload, label: label, chips: chips, text: text, when: w.s, edit: !!editing};
     closePanel();
-    bgRun(label, function(ok, fail){ serverCall(fn, [CODE, payload], ok, fail); }, function(res){ DATA = res.data; renderAll(); });
+    outAdd(entry);
   });
 
   function savePump(w){
@@ -7261,11 +7374,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!isFinite(pv.reading)) { say('Enter the meter reading.', 'err'); return; }
     var note = $('epNote').value.trim();
     if (pump.type === 'well' && $('epFull').checked && !/tank full/i.test(note)) note = 'Tank Full' + (note ? '; ' + note : '');
-    var payload = {type: pump.type, reading: pv.reading, localDateTime: w.s, notes: note, name: ''};
+    var payload = {id: outId(), type: pump.type, reading: pv.reading, localDateTime: w.s, notes: note, name: ''};
     if (pump.type === 'well' && pv.tank !== '') payload.tankLevel = pv.tank;
+    var chips = [['Meter', fmtNum(pv.reading)]];
+    if (payload.tankLevel !== undefined) chips.push(['Tank', fmtNum(Number(pv.tank)) + ' gal']);
     closePanel();
-    bgRun((pump.type === 'well' ? 'Well' : 'Pool') + ' reading', function(ok, fail){ pumpCall('addReading', [CODE, payload], ok, fail); },
-      function(res){ if (pump.readings && res.entry) pump.readings.unshift(res.entry); });
+    outAdd({id: payload.id, kind: 'pump', fn: 'addReading', payload: payload, label: (pump.type === 'well' ? 'Well' : 'Pool') + ' reading', chips: chips, text: note, when: w.s});
   }
 
   // ---- the ⋯ on a dashboard entry (edit / delete). The name now sits by the time (whoHtml); this is only the button.
