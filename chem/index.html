@@ -582,6 +582,9 @@ body.loading .gate{display:none !important}
 .lvlnote{font-size:13px;color:var(--muted);margin:0 0 10px}
 .card.thid{opacity:.55;border-style:dashed}
 .thid-tag{color:var(--muted);font-size:12px;font-weight:600;margin-left:8px}
+.head .emk.join-tag{margin:0 0 0 8px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12px;font-weight:600;white-space:nowrap}
+.rmrow .btn.sm{padding:6px 10px;font-size:13px;min-height:0}
+@media print{.join-tag{display:none!important}}
 .btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
 dialog input.secret,dialog input[type=password],dialog input[type=number],dialog input[type=date]{width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:40px}
 dialog .err{color:var(--red);font-size:14px;min-height:20px;margin-top:8px}
@@ -2271,7 +2274,8 @@ function fullName(n){
 function sameName(a, b){ a = String(a || '').trim(); b = String(b || '').trim(); return !!a && !!b && (a === b || fullName(a) === fullName(b)); }
 function whoHtml(x){
   if (!x || x.src !== 'Dashboard' || !x.by) return '';
-  return '<span class="who" title="Entered by ' + esc(fullName(x.by)) + '">' + PERSON_SVG + esc(firstName(x.by)) + '</span>';
+  var bys = x.bys && x.bys.length ? x.bys : [x.by];
+  return '<span class="who" title="Entered by ' + esc(bys.map(fullName).join(', ')) + '">' + PERSON_SVG + esc(bys.map(firstName).join(', ')) + '</span>';
 }
 /** CSI is always between -1 and 1: wrap its leading zero so phones can drop it ("-0.29" -> "-.29"). */
 function numHtml(key, v){
@@ -2310,12 +2314,25 @@ function noteCard(n){
 }
 /** On a card that is still on this phone only (the outbox, t.wait): "Syncing" by the name; its numbers pulse (.card.wait). */
 var WAIT_TAG = '<span class="wtag"><span class="osp" aria-hidden="true"></span>Syncing</span>';
+/** A test by its ID: a tile's own, or one of the entries inside a joined tile (t.parts, server joinTests_). */
+function testById(id){
+  var hit = null;
+  (DATA.tests || []).forEach(function(t){
+    if (hit) return;
+    if (t.parts) t.parts.forEach(function(x){ if (x.id === id) hit = x; });
+    else if (t.id === id) hit = t;
+  });
+  return hit;
+}
 function testCard(t){
-  var mk = t.wait ? '' : mkBtn('store', t.id) || (window.entryMk ? entryMk(t, 'test') : '');
+  // joined tile (one test logged in pieces): its ⋯ lists the entries; each is edited / deleted from there
+  var mk = t.wait ? '' : t.parts ? '<button type="button" class="emk" data-ek="parts" data-eid="' + esc(t.id) + '" aria-label="The entries in this test">⋯</button>'
+    : mkBtn('store', t.id) || (window.entryMk ? entryMk(t, 'test') : '');
   return '<div class="card test' + (t.store ? ' store' : '') + (t.hidden ? ' thid' : '') + (t.wait ? ' wait' : '') + '"><div class="head"><span class="lhs"><span class="time">' + esc(t.time) + '</span>' +
     whoHtml(t) + (t.wait ? WAIT_TAG : '') +
     (t.store ? '<span class="store-tag" title="Leslie\'s (pool store) test">Leslie\'s</span>' : '') +
-    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden from members</span>' : '') + '</span>' +
+    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden from members</span>' : '') +
+    (t.parts ? '<button type="button" class="join-tag emk" data-ek="parts" data-eid="' + esc(t.id) + '" title="Logged as ' + t.parts.length + ' entries, shown as one test">' + t.parts.length + ' entries</button>' : '') + '</span>' +
     '<span class="rhs">' + wxHtml(t.w) + mk + '</span></div>' +
     '<div class="chips">' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
 }
@@ -2484,6 +2501,7 @@ function popNode(){
     popEl.addEventListener('click', function(e){
       e.stopPropagation();
       if (e.target.closest && e.target.closest('[data-mktoggle]') && popCurChip && popCurChip.hasAttribute('data-mkid')){ mkToggle(popCurChip, e.target.closest('[data-mktoggle]').getAttribute('data-mktoggle')); return; }
+      if (e.target.closest && e.target.closest('[data-mkjoin]') && popCurChip && popCurChip.hasAttribute('data-mkid')){ mkJoin(popCurChip); return; }
       if (e.target.closest && e.target.closest('[data-mkrm]') && popCurChip && popCurChip.hasAttribute('data-mkid')){ mkRemove(popCurChip, e.target.closest('[data-mkrm]').getAttribute('data-mkrm')); return; }
       var ed = e.target.closest && e.target.closest('[data-mked]');
       if (ed && popCurChip && popCurChip.hasAttribute('data-mkid')){
@@ -2709,8 +2727,8 @@ function chipFromEvent(e){ return e.target && e.target.closest ? e.target.closes
 // Saved on the sheet's Manual marks tab; Yes or No there wins over the Pool Math note rules.
 var mkBusy = false, mkMsg = '', mkConfirm = '';
 function mkItem(kind, id){
-  var list = kind === 'slow' ? (DATA.chems || []) : (DATA.tests || []);
-  return list.filter(function(x){ return x.id === id; })[0] || null;
+  if (kind !== 'slow') return testById(id);
+  return (DATA.chems || []).filter(function(x){ return x.id === id; })[0] || null;
 }
 function mkPopHtml(btn){
   var kind = btn.getAttribute('data-mk'), id = btn.getAttribute('data-mkid'), it = mkItem(kind, id);
@@ -2736,7 +2754,14 @@ function mkPopHtml(btn){
         ? '<div class="trkhint" style="color:var(--ink)">Remove this test? It disappears for everyone and stops counting for due dates, predictions and CSI. You can bring it back from ⋯ &gt; Review removed tests.</div>' +
           '<div class="mkrm"><button type="button" class="btn" data-mkrm="no">Keep it</button><button type="button" class="btn danger" data-mkrm="yes"' + (mkBusy ? ' disabled' : '') + '>Remove</button></div>'
         : '<div class="mkrm"><button type="button" class="btn danger" data-mkrm="ask"' + (mkBusy ? ' disabled' : '') + '>Remove test…</button></div>') : '') +
+    (kind === 'store' && it.split ? '<div class="trkhint" style="margin-top:10px">Split apart from the test before it.</div><div class="mkrm"><button type="button" class="btn" data-mkjoin="1"' + (mkBusy ? ' disabled' : '') + '>Join them again</button></div>' : '') +
     (mkMsg ? '<div class="trkerr">' + esc(mkMsg) + '</div>' : '');
+}
+function mkJoin(btn){
+  if (mkBusy) return;
+  var id = btn.getAttribute('data-mkid'), it = mkItem('store', id); if (!it) return;
+  mkBusy = true; mkMsg = ''; openPopFor(btn, true);
+  setSplit([it], false, function(err){ mkBusy = false; if (err) { mkMsg = err; mkReopen('store', id); return; } closePop(); });
 }
 function mkFind(kind, id){ return document.querySelector('.mk[data-mk="' + kind + '"][data-mkid="' + id + '"]'); }
 function mkReopen(kind, id){ var b = mkFind(kind, id); if (b) openPopFor(b, true); else closePop(); }
@@ -2769,6 +2794,18 @@ function mkRemove(btn, step){
     closePop();
     bgSet('Test removed. Bring it back from ⋯ > Review removed tests.', 'ok'); setTimeout(function(){ bgSet(''); }, 4000);
   });
+}
+/** Save or clear the Kept separate mark on these tests (one call each); done(errorText or '') with the fresh data in. */
+function setSplit(list, on, done){
+  var todo = list.slice();
+  (function next(){
+    var it = todo.shift(); if (!it) { renderAll(); done(''); return; }
+    serverCall('saveMark', [CODE, {id: it.id, kind: 'split', on: on, what: 'Test ' + it.day + ' ' + it.time}], function(res){
+      if (handleDenied(res)) return;
+      if (!res || !res.ok) { done((res && res.message) || 'Could not save.'); return; }
+      DATA = res.data; next();
+    }, function(err){ done('Could not reach the server: ' + (err && err.message || err)); });
+  })();
 }
 /** Save or clear the Removed mark; done(errorText or '') after the page has the fresh data. */
 function setRemoved(id, on, what, done){
@@ -6382,7 +6419,22 @@ document.addEventListener('DOMContentLoaded', function(){
   var FIELDS = []; GROUPS.forEach(function(g){ g[2].forEach(function(f){ FIELDS.push(f); }); });
   var BORROW = {tempF: 7, ta: 30, ch: 30, cya: 30, salt: 90, bor: 90};      // same as CSI_BORROW_DAYS in Code.gs
   var BLABEL = {tempF: 'Temp', ta: 'TA', ch: 'CH', cya: 'CYA', salt: 'Salt', bor: 'Borates'};
-  var DUP_MS = 30 * 60000;
+  var DUP_MS = 30 * 60000, JOIN_MS = 60 * 60000;   // JOIN_MS = the server's (joinTests_)
+  /** The readings an addition changes right away (the server's joinHits_, from the fx it sends). */
+  function joinHits(c){
+    var h = {}, fx = c.fx || {};
+    if (c.slow || c.fromNote) return h;
+    if (c.affects && c.affects !== 'none') h[c.affects] = true;
+    if (fx.fc) h.fc = true;
+    if (fx.acid || fx.alk) { h.ph = true; h.ta = true; }
+    if (fx.ch) h.ch = true;
+    if (fx.cya) h.cya = true;
+    if (fx.bor) { h.bor = true; h.ph = true; }
+    if (h.fc) h.cc = true;
+    if (h.ph) h.ta = true;
+    if (h.ta) h.ph = true;
+    return h;
+  }
   var ENTRY_ST = {green: 'In range', yellow: 'Watch', red: 'Out', purple: 'High'};
 
   var ui = $('entryUi'), fab = $('eFab'), grow = $('eGrow'), body = $('eBody'), save = $('eSave'), msg = $('eMsg');
@@ -7388,6 +7440,12 @@ document.addEventListener('DOMContentLoaded', function(){
       if (r.bad.length) { say('One of the numbers isn\'t a number. Check the yellow box.', 'err'); return; }
       if (!editing && !dupOk) {
         var near = (DATA.tests || []).filter(function(t){ return Math.abs(t.ms - w.ms) <= DUP_MS && hasReading(t); })[0];
+        var mineK = FIELDS.filter(function(f){ return isNum(r.v[f[0]]); }).map(function(f){ return f[0]; });
+        var joinT = (DATA.tests || []).filter(function(t){   // the same rule as the server's joinTests_
+          return hasReading(t) && !t.store && w.ms >= t.ms && w.ms - t.ms <= JOIN_MS && !mineK.some(function(k){ return isNum(t[k]); }) &&
+            !(DATA.chems || []).some(function(c){ return c.ms > t.ms && c.ms < w.ms && mineK.some(function(k){ return joinHits(c)[k]; }); });
+        }).sort(function(x, y){ return y.ms - x.ms; })[0];
+        if (joinT && mineK.length) { dupOk = true; save.textContent = 'Add to that test'; say('There\'s a test at ' + joinT.time + ' without ' + (mineK.length > 1 ? 'these readings' : 'this reading') + ', so this will show in the same tile.', 'warn'); return; }
         if (near) { dupOk = true; save.textContent = 'Save anyway'; say('There\'s already a test at ' + near.time + (near.day !== w.s.slice(0, 10) ? ' on ' + fmtDayRel(near.day) : '') + '. Is this a different test?', 'warn'); return; }
       }
       payload = {id: editing ? editing.id : '', when: w.s};
@@ -7440,7 +7498,22 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   window.entryEdit = function(kind, id){ var it = findEntry(kind, id); if (it) openPanel(kind, it, fab); };
   window.entryDel = function(kind, id){ menu(kind, id, true); };
-  function findEntry(kind, id){ return ((kind === 'test' ? DATA.tests : kind === 'chem' ? DATA.chems : DATA.notes) || []).filter(function(x){ return x.id === id; })[0] || null; }
+  function findEntry(kind, id){ if (kind === 'test') return testById(id); return ((kind === 'chem' ? DATA.chems : DATA.notes) || []).filter(function(x){ return x.id === id; })[0] || null; }
+  /** The entries inside a joined test tile: time, who, readings; Edit / Delete for the ones this person may change. */
+  function partsMenu(id){
+    var t = (DATA.tests || []).filter(function(x){ return x.id === id && x.parts; })[0]; if (!t) return;
+    menuFor = null;
+    $('emBody').innerHTML = '<div class="pophead"><div><h2 id="emTitle">Test · ' + t.parts.length + ' entries</h2>' +
+      '<span class="popsub">' + esc(fmtDayRel(t.day)) + ' · logged in pieces, shown as one test</span></div>' +
+      '<button type="button" class="popx" data-em="cancel" aria-label="Close">×</button></div><div class="popbody">' +
+      t.parts.map(function(x){
+        var vals = FIELDS.filter(function(f){ return isNum(x[f[0]]); }).map(function(f){ return f[1] + ' ' + fmtNum(x[f[0]]); }).join(' · ');
+        return '<div class="rmrow"><div><b>' + esc(x.time) + (x.src === 'Dashboard' && x.by ? ' · ' + esc(firstName(x.by)) : x.src === 'Dashboard' ? '' : ' · Pool Math') + '</b><span>' + esc(vals) + '</span></div>' +
+          (mine(x) ? '<button type="button" class="btn sm" data-pe="edit" data-pid="' + esc(x.id) + '">Edit</button><button type="button" class="btn sm danger" data-pe="del" data-pid="' + esc(x.id) + '">Delete</button>' : '') + '</div>';
+      }).join('') + '<p class="pophelp" style="margin:10px 0 0">Entries within an hour that don\'t repeat a reading are joined.</p></div>' +
+      (isMgr() ? '<div class="popfoot"><div class="err" id="peErr" role="alert"></div><button type="button" class="btn" data-psplit="' + esc(t.id) + '">Split apart</button></div>' : '');
+    if (!$('entryMenu').open) openDlg('entryMenu');
+  }
   var ENTRY_WORD = {test: 'test', note: 'note', chem: 'addition'};
   var menuFor = null;
   function menu(kind, id, confirmDel, err){
@@ -7458,7 +7531,20 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('.emk');
-    if (b) { e.preventDefault(); menu(b.getAttribute('data-ek'), b.getAttribute('data-eid')); return; }
+    if (b) { e.preventDefault(); if (b.getAttribute('data-ek') === 'parts') partsMenu(b.getAttribute('data-eid')); else menu(b.getAttribute('data-ek'), b.getAttribute('data-eid')); return; }
+    var pe = e.target.closest && e.target.closest('#entryMenu [data-pe]');
+    if (pe) { var pid = pe.getAttribute('data-pid'); if (pe.getAttribute('data-pe') === 'del') menu('test', pid, true); else { closeDlg('entryMenu'); openPanel('test', findEntry('test', pid), fab); } return; }
+    if (!menuFor && e.target.closest && e.target.closest('#entryMenu [data-em="cancel"]')) { closeDlg('entryMenu'); return; }
+    var sp = e.target.closest && e.target.closest('#entryMenu [data-psplit]');
+    if (sp) {                                                    // Manager: every entry after the first gets the Kept separate mark
+      var jt = (DATA.tests || []).filter(function(x){ return x.id === sp.getAttribute('data-psplit') && x.parts; })[0]; if (!jt) return;
+      sp.disabled = true; sp.textContent = 'Splitting…';
+      setSplit(jt.parts.slice(1), true, function(err){
+        if (err) { sp.disabled = false; sp.textContent = 'Split apart'; if ($('peErr')) $('peErr').textContent = err; return; }
+        closeDlg('entryMenu'); bgSet('Split apart. To join them again: ⋯ on the later tile.', 'ok'); setTimeout(function(){ bgSet(''); }, 4000);
+      });
+      return;
+    }
     var m = e.target.closest && e.target.closest('#entryMenu [data-em]');
     if (!m || !menuFor) return;
     var act = m.getAttribute('data-em'), kind = menuFor.kind, id = menuFor.id;
