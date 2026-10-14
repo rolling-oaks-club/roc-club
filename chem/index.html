@@ -152,7 +152,6 @@ button,select,input[type=date]{font:inherit;color:var(--ink)}
 .head{display:flex;justify-content:space-between;gap:2px 10px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px}
 .time{font-weight:600}
 .wx{color:var(--muted);font-size:13px;white-space:nowrap}
-.wx.short .d{display:none}
 .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
 .chip{border-radius:12px;padding:8px 10px;position:relative;background:var(--soft);min-height:58px}
 .chip .v{font-size:20px;font-weight:600;line-height:1.15;display:block}
@@ -1359,7 +1358,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .who{display:inline-flex;align-items:center;gap:3px;font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .who svg{width:12px;height:12px;flex:0 0 12px}
 .wx{font-size:12.5px}
-.wx .ds{display:none} .wx.s1 .d{display:none} .wx.s1 .ds{display:inline} .wx.s2 .d,.wx.s2 .ds{display:none}
+
 .head .emk{margin:-2px -6px -2px 2px;font-size:16px}
 /* chemical additions: open rows, round icon in the color of what they change */
 .card.chem{display:flex;align-items:center;gap:10px;background:transparent;border:0;border-left:0;box-shadow:none;border-radius:0;padding:5px 4px 9px}
@@ -2247,7 +2246,9 @@ function wxHtml(w){
   var t = isNum(w.tempF) ? Math.round(w.tempF) + '°' : '', d = w.desc ? String(w.desc) : '';
   if (!t && !d) return '';
   var sd = d ? wxShort(d) : '';
-  return '<span class="wx"><span class="t">' + t + '</span>' + (d ? '<span class="d"> ' + esc(d) + '</span>' + '<span class="ds"> ' + esc(sd) + '</span>' : '') + '</span>';
+  // one plain text, swapped whole by fitWeather (hiding spans inside it left a gap and a stray line in iPhone Safari)
+  var w0 = (t + (d ? ' ' + d : '')).trim(), w1 = (t + (sd ? ' ' + sd : '')).trim();
+  return '<span class="wx" data-w0="' + esc(w0) + '" data-w1="' + esc(w1) + '" data-w2="' + esc(t || w1) + '">' + esc(w0) + '</span>';
 }
 function wxFull(w){
   if (!w) return '';
@@ -3464,12 +3465,13 @@ function fitWeather(){
   for (var i = 0; i < heads.length; i++){
     var h = heads[i], wx = h.querySelector('.wx'), l = h.querySelector('.lhs');
     if (!wx || !l) continue;
-    wx.classList.remove('s1', 's2');
+    var set = function(n){ var v = wx.getAttribute('data-w' + n); if (v !== null && wx.textContent !== v) wx.textContent = v; };
+    set(0);
     // tight = the time / name side is being squeezed (the ⋯ hangs 6px past the edge on purpose, so the line's own width can't tell)
     var who = l.querySelector('.who');
     var tight = function(){ return l.scrollWidth > l.clientWidth + 1 || (who && who.scrollWidth > who.clientWidth + 1); };
-    if (tight()) wx.classList.add('s1');                                   // "Storm" instead of "Thunderstorm"
-    if (tight()){ wx.classList.remove('s1'); wx.classList.add('s2'); }     // just the temperature
+    if (tight()) set(1);                                                   // "Storm" instead of "Thunderstorm"
+    if (tight()) set(2);                                                   // just the temperature
   }
 }
 function selectedItems(from, to, withChems, withTests, withNotes){
