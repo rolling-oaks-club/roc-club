@@ -1554,7 +1554,8 @@ html.app .nowsw{bottom:var(--cornerGap,24px)}
 .nowsw.priv{display:flex}
 .nowsw .sg{display:inline-flex;border-radius:999px;padding:4px;gap:2px;background:color-mix(in srgb,var(--card) 34%,transparent);-webkit-backdrop-filter:blur(18px) saturate(190%);backdrop-filter:blur(18px) saturate(190%);box-shadow:0 6px 20px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 1px color-mix(in srgb,var(--card) 55%,transparent),0 0 0 .5px color-mix(in srgb,var(--ink) 12%,transparent)}   /* glassy: mostly see-through, the chosen side solid */
 .nowsw button:not(.on){color:var(--ink);text-shadow:0 0 6px color-mix(in srgb,var(--card) 80%,transparent)}
-.nowsw button{font:inherit;font-size:15px;border:0;background:none;color:var(--ink2);padding:8px 20px;border-radius:999px;cursor:pointer}
+.nowsw button{font:inherit;font-size:15px;border:0;background:none;color:var(--ink2);padding:8px 14px;border-radius:999px;cursor:pointer}   /* 14 px sides (was 20, 2026-10-14): room beside the ⋯ and + on small phones */
+@media (max-width:389px){ .nowsw button{font-size:14px;padding:8px 11px} }   /* iPhone SE / mini width */
 .nowsw button.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 body.v-now.unlocked:is(.lvl-board,.lvl-manager) :is(#up,#histRow,#opts,#list,#legend){display:none !important}
 #now{display:none !important;flex-direction:column;gap:10px}
@@ -1563,7 +1564,6 @@ body.v-now.unlocked:is(.lvl-board,.lvl-manager) #now{display:flex !important}
 html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .nsum{background:var(--panel);border-radius:18px;padding:12px 12px 14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:start}
 /* heading above the card, like "Coming up" / "History" (2026-10-14) */
-#now .nfrom{margin:-6px 4px -2px;font-size:12.5px;color:var(--muted)}   /* Forecast: says these are estimates (2026-10-14) */
 #now .nhd{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0 2px -4px 2px}
 #now .nhd h2{margin:0;white-space:nowrap}
 #now .nhd .nat{font-size:14px;color:var(--muted);white-space:nowrap}
@@ -4468,7 +4468,7 @@ function nowSummary(M){
     csi = '<button type="button" class="ncsi" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '" aria-label="CSI ' + nowFmt('csi', c.v) + (cs.txt ? ', ' + cs.txt : '') + '"><span class="lb">CSI</span><span class="nn ' + cs.cls + '">' + nowFmt('csi', c.v) + '</span>' +
       '<span class="nbarw" aria-hidden="true"><span class="nbar">' + bars + '</span><i class="ntick" style="left:' + (px(c.v) / 0.88).toFixed(1) + '%"></i></span></button>';
   }
-  return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><p class="nfrom">Estimated from the last tests, chemicals added and the weather.</p><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
+  return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
     (nowOpen.csi ? nowCsiDetail(M) : '');
 }
 
