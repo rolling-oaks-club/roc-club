@@ -580,7 +580,8 @@ body.loading .gate{display:none !important}
 @media (prefers-reduced-motion:reduce){.skel .sk{animation:none}}
 .gate p{margin:0 0 16px;color:var(--muted);line-height:1.45}
 .lvlnote{font-size:13px;color:var(--muted);margin:0 0 10px}
-.card.thid{opacity:.55;border-style:dashed}
+.card.thid{border-style:dashed}   /* not faded (2026-10-14): the Manager reads it like any other test */
+.card.test .head .time{white-space:nowrap}
 .thid-tag{color:var(--muted);font-size:12px;font-weight:600;margin-left:8px}
 .head .emk.join-tag{margin:0 0 0 8px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12px;font-weight:600;white-space:nowrap}
 .rmrow .btn.sm{padding:6px 10px;font-size:13px;min-height:0}
@@ -1404,8 +1405,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jrow .dot{width:10px;height:10px;border-radius:50%;background:var(--yellow);flex:0 0 10px}
 .jrow.lv-red .dot{background:var(--red)}
 .jrow b{font-size:15.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.jrow .st{margin-left:auto;font-size:13px;color:var(--ink2);white-space:nowrap}
-.jrow.lv-red .st{color:var(--red);font-weight:600}
+.jrow .st{margin-left:auto}   /* the same pill as the job's popover (.jpill, 2026-10-14) */
 .jrow.more{justify-content:center;color:var(--accent);font-size:14px;padding:8px}
 .jrow{position:relative}
 .jrow.popopen::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 2px var(--accent);pointer-events:none}   /* follows the box's rounded corners (2026-10-14) */
@@ -1563,6 +1563,7 @@ body.v-now.unlocked:is(.lvl-board,.lvl-manager) #now{display:flex !important}
 html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .nsum{background:var(--panel);border-radius:18px;padding:12px 12px 14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:start}
 /* heading above the card, like "Coming up" / "History" (2026-10-14) */
+#now .nfrom{margin:-6px 4px -2px;font-size:12.5px;color:var(--muted)}   /* Forecast: says these are estimates (2026-10-14) */
 #now .nhd{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0 2px -4px 2px}
 #now .nhd h2{margin:0;white-space:nowrap}
 #now .nhd .nat{font-size:14px;color:var(--muted);white-space:nowrap}
@@ -1790,7 +1791,7 @@ dialog.pop.wide{max-width:1040px}
   </div>
   <div class="skel" id="skel" aria-hidden="true"></div>
   <p class="lvlnote" id="lvlNote" hidden></p>
-  <div class="nowsw priv brd" id="nowSw" role="group" aria-label="View"><span class="sg"><button type="button" id="vHist" class="on" aria-pressed="true">History</button><button type="button" id="vNow" aria-pressed="false">Now</button></span></div>
+  <div class="nowsw priv brd" id="nowSw" role="group" aria-label="View"><span class="sg"><button type="button" id="vHist" class="on" aria-pressed="true">Logbook</button><button type="button" id="vNow" aria-pressed="false">Forecast</button></span></div>
   <div id="now" class="priv brd" aria-live="polite"></div>
   <div class="up priv" id="up" hidden>
     <div class="uprow"><span class="seclbl">Coming up</span><span class="hln" aria-hidden="true"></span>
@@ -2388,7 +2389,7 @@ function testCard(t){
   return '<div class="card test' + (t.store ? ' store' : '') + (t.hidden ? ' thid' : '') + (t.wait ? ' wait' : '') + '"><div class="head"><span class="lhs"><span class="time">' + esc(t.time) + '</span>' +
     whoHtml(t) + (t.wait ? WAIT_TAG : '') +
     (t.store ? '<span class="store-tag" title="Leslie\'s (pool store) test">Leslie\'s</span>' : '') +
-    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden from members</span>' : '') +
+    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden</span>' : '') +
     (t.parts ? '<button type="button" class="join-tag emk" data-ek="parts" data-eid="' + esc(t.id) + '" title="Logged as ' + t.parts.length + ' entries, shown as one test">' + t.parts.length + ' entries</button>' : '') + '</span>' +
     '<span class="rhs">' + wxHtml(t.w) + mk + '</span></div>' +
     '<div class="chips">' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
@@ -3336,7 +3337,7 @@ function renderJobs(ts){
   var rows = shown.map(function(i){
     var t = ts[i], s = trkState(t), red = t.err || s.lv === 'red', n = late(t);
     var st = t.err ? 'Check setting' : red ? (n >= 1 ? n + (n === 1 ? ' day late' : ' days late') : 'Late') : 'Due now';
-    return '<button type="button" class="jrow lv-' + (red ? 'red' : 'yellow') + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st">' + esc(st) + '</span></button>';
+    return '<button type="button" class="jrow lv-' + (red ? 'red' : 'yellow') + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st jpill lv-' + (red ? 'red' : 'yellow') + '">' + esc(st) + '</span></button>';
   });
   if (due.length > 3) rows.push('<button type="button" class="jrow more" id="jMore">+' + (due.length - 2) + ' more due now</button>');
   $('jobs').innerHTML = rows.join('');
@@ -3652,7 +3653,7 @@ function renderHeader(){
    learned from our own tests; pH creeps up at a rate learned the same way. Water temperature follows the air of the
    last few days plus sun, nudged by our own temperature tests. */
 var NOW_SURE_H = {fc:48, cc:48, ph:48, ta:14*24, ch:21*24, cya:21*24};   // how long an estimate stays good after a test
-var NOW_TILES = [['fc','Free chlorine','ppm','FC'], ['cc','Combined chlorine','ppm','CC'], ['ph','pH','','pH'],
+var NOW_TILES = [['fc','Free chlorine','ppm','FC'], ['ph','pH','','pH'],   // no CC (2026-10-14): it doesn't drift, the last test says it all
   ['ta','Total alkalinity','ppm','TA'], ['ch','Calcium hardness','ppm','CH'], ['cya','Stabilizer (CYA)','ppm','CYA']];
 var NOW_SPAN = {fc:4, cc:4, ph:4, ta:25, ch:25, cya:25, csi:25, tempF:12};        // days on the tile's chart (scroll for more)
 /** Calcium hardness of our well water, which refill water brings in: one number for everyone, set on the CH tile (server saveWellCh). */
@@ -4121,8 +4122,10 @@ function nowCurve(pts){
   }
   return d;
 }
+/** Computers (2026-10-14): taller Now charts, for more detail. */
+function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-width:900px)').matches); }
 function nowChart(o){
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? 120 : 92) + top - 8, ih = H - top - bot;
+  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   var vals = [];
@@ -4465,7 +4468,7 @@ function nowSummary(M){
     csi = '<button type="button" class="ncsi" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '" aria-label="CSI ' + nowFmt('csi', c.v) + (cs.txt ? ', ' + cs.txt : '') + '"><span class="lb">CSI</span><span class="nn ' + cs.cls + '">' + nowFmt('csi', c.v) + '</span>' +
       '<span class="nbarw" aria-hidden="true"><span class="nbar">' + bars + '</span><i class="ntick" style="left:' + (px(c.v) / 0.88).toFixed(1) + '%"></i></span></button>';
   }
-  return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
+  return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><p class="nfrom">Estimated from the last tests, chemicals added and the weather.</p><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
     (nowOpen.csi ? nowCsiDetail(M) : '');
 }
 
