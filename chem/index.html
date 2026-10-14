@@ -686,6 +686,13 @@ dialog .padj input[type=number]{width:80px;min-height:34px;font-size:16px;paddin
 .impbox.ok .impspin{background:var(--green)} .impbox.err .impspin{background:var(--red)}
 @keyframes impspin{to{transform:rotate(360deg)}}
 #refreshBtn.spin svg{animation:impspin .8s linear infinite}
+/* pull to refresh (2026-10-14): the round arrow that comes down from the top */
+html{overscroll-behavior-y:none}
+.ptr{position:fixed;left:50%;top:calc(var(--barH,0px) + var(--barTop,0px) + 8px);z-index:60;width:40px;height:40px;border-radius:50%;background:var(--card);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);transform:translate(-50%,-50px);opacity:0;pointer-events:none}
+.ptr.go{color:var(--accent)}
+.ptr.spin{color:var(--accent)}
+.ptr.spin svg{animation:impspin .8s linear infinite}
 .prbusy{display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.35;padding:7px 10px;border-radius:8px;background:var(--soft);color:var(--ink2);margin:8px 0 2px}
 .prbusy[hidden]{display:none}
 .prbusy .prspin{flex:0 0 auto;width:12px;height:12px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:impspin .8s linear infinite}
@@ -1399,7 +1406,8 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jrow .st{margin-left:auto;font-size:13px;color:var(--ink2);white-space:nowrap}
 .jrow.lv-red .st{color:var(--red);font-weight:600}
 .jrow.more{justify-content:center;color:var(--accent);font-size:14px;padding:8px}
-.jrow.popopen{box-shadow:inset 0 0 0 2px var(--accent)}
+.jrow{position:relative}
+.jrow.popopen::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 2px var(--accent);pointer-events:none}   /* follows the box's rounded corners (2026-10-14) */
 .jline{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink2);margin:9px 4px 0;line-height:1.35}
 .jline:first-child{margin-top:2px}
 .jline .ok{color:var(--green);font-weight:700}
@@ -1407,7 +1415,10 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .up .trk{display:none !important}
 /* the six tests: always in the same order, each box as wide as its words */
 .tdue.priv{display:flex}
-.up .tdue{display:flex;gap:4px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none}
+.up .tdue{display:flex;gap:4px;margin:0;overflow-x:auto;scrollbar-width:none}
+/* tests above the jobs (2026-10-14) */
+.up .tdue:not([hidden])+.jobs:not([hidden]){margin-top:10px}
+.up .tdue:not([hidden])+.jobs[hidden]+#jlines .jline:first-child{margin-top:10px}
 .up .tdue::-webkit-scrollbar{display:none}
 .tdc{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;background:var(--card);border:0;border-radius:10px;padding:6px 5px 5px;color:var(--muted);font-size:10.5px;overflow:visible}
 .tdc b{display:block;margin:0;font-size:13.5px}
@@ -1464,8 +1475,15 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .chipPop .jends{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:600}
 .chipPop .jends span:last-child{text-align:right}
 .chipPop .jends small{font-size:12px;font-weight:400;color:var(--muted)}
-.chipPop .jdose{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--soft)}
-.chipPop .jdose .k{flex:none;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.chipPop .jdose{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 10px 10px 14px;border-radius:14px;
+  background:color-mix(in srgb,var(--accent) 11%,var(--card));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);animation:jdpulse 2.4s ease-in-out infinite}
+.chipPop .jdose .kv{flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 10px}
+.chipPop .jdose .k{flex:none;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.chipPop .jdose button.pri{flex:none;font:inherit;font-size:15px;font-weight:600;min-height:44px;padding:6px 18px;border-radius:11px;border:0;background:var(--accent);color:var(--accentInk);cursor:pointer}
+/* the dose box breathes gently: what to add + Log it (2026-10-14) */
+@keyframes jdpulse{0%,100%{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent),0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent)}
+  50%{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 70%,transparent),0 0 0 5px color-mix(in srgb,var(--accent) 16%,transparent)}}
+@media (prefers-reduced-motion:reduce){.chipPop .jdose{animation:none}}
 .chipPop .jdose .v b{font-size:19px}
 .chipPop .jdose .v .jm{display:block;margin-top:2px;font-size:13px}   /* "FC 5 (today) → 9" / the Orenda note on its own line */
 .chipPop .jpost{margin-top:8px;padding:7px 10px;border-radius:10px;background:var(--sum);font-size:13px;color:var(--ink2)}
@@ -1543,11 +1561,12 @@ body.v-now.unlocked:is(.lvl-board,.lvl-manager) #now{display:flex !important}
 #now{margin-bottom:84px}
 html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .nsum{background:var(--panel);border-radius:18px;padding:12px 12px 14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:start}
-.nsum .nhd{grid-column:1;grid-row:1;display:flex;align-items:baseline;gap:8px;min-width:0}
-.nsum h2{margin:0;font-size:20px;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
-.nsum .nat{font-size:13px;color:var(--muted);white-space:nowrap}
-.nsum .nl{grid-column:1;grid-row:2;min-width:0;display:flex;flex-direction:column;gap:6px}
-.nsum .ncsi{grid-column:2;grid-row:1 / span 2;align-self:start}
+/* heading above the card, like "Coming up" / "History" (2026-10-14) */
+#now .nhd{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0 2px -4px 2px}
+#now .nhd h2{margin:0;white-space:nowrap}
+#now .nhd .nat{font-size:14px;color:var(--muted);white-space:nowrap}
+.nsum .nl{grid-column:1;grid-row:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-self:center}
+.nsum .ncsi{grid-column:2;grid-row:1;align-self:start}
 .ntags{display:flex;flex-wrap:wrap;gap:5px}
 .ntag{font-size:12px;font-weight:650;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ntag.g,.ns.g{background:var(--okT);color:var(--okInk)}
@@ -1559,7 +1578,18 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ncsi .lb{font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--k-csi)}
 .ncsi .nn{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1.05;font-variant-numeric:tabular-nums}
 .ncsi svg{margin-top:3px}
-.ncsi .ntrack{fill:var(--soft)} .ncsi .ngood{fill:var(--okInk);opacity:.35}
+/* CSI box (2026-10-14): never taller than the tags + sentence beside it (it stretches to their height) */
+.nsum .ncsi{align-self:stretch;min-height:0}
+.ncsi{position:relative;padding:6px 6px 26px;gap:1px}
+.ncsi .lb{font-size:13px}
+.ncsi .nn.g{color:var(--okInk)} .ncsi .nn.y{color:color-mix(in srgb,var(--yellow) 55%,var(--ink))} .ncsi .nn.r{color:var(--red)} .ncsi .nn.p{color:var(--purple)}
+/* the range bar: a pill nestled in the tile's bottom corners - 8px in from the sides and bottom, ends rounded 6px = the tile's 14 minus 8, so the curves run parallel */
+.ncsi .nbarw{position:absolute;left:8px;right:8px;bottom:8px;height:12px}
+.ncsi .nbar{position:absolute;inset:0;border-radius:6px;overflow:hidden;background:var(--soft)}
+.ncsi .nbar i{position:absolute;top:0;bottom:0}
+.ncsi .nb{opacity:.3}
+.ncsi .nb.green{background:var(--green)} .ncsi .nb.yellow{background:var(--yellow)} .ncsi .nb.red{background:var(--red)} .ncsi .nb.purple{background:var(--purple)}
+.ncsi .nbarw .ntick{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 1px var(--card)}   /* a little taller than the bar */
 .ntile{background:var(--card);border-radius:18px;padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px}
 .nhead,.ntop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer}
 .ntop{cursor:default}
@@ -1659,7 +1689,6 @@ html.top-wash .ntag.y,html.top-wash .ncsi .ns.y{background:color-mix(in srgb,var
 html.top-wash .ntag.r,html.top-wash .ncsi .ns.r{background:color-mix(in srgb,var(--red) 20%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red) 55%,transparent)}
 html.top-wash .ntag.p,html.top-wash .ncsi .ns.p{background:color-mix(in srgb,var(--purple) 20%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--purple) 50%,transparent)}
 /* things that were tinted against the old near-white page and would vanish on the grey one */
-.ncsi .ntrack{fill:var(--line)}
 .chipPop .jpost{background:var(--soft)}
 .status{background:var(--card)}
 .skel .sk{background:var(--card)}
@@ -1761,10 +1790,10 @@ dialog.pop.wide{max-width:1040px}
     <div class="uprow"><span class="seclbl">Coming up</span><span class="hln" aria-hidden="true"></span>
       <button type="button" class="optbtn" id="upBtn" aria-expanded="false" aria-controls="upDet">Details<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
     <div class="upbox">
+      <div class="tdue priv brd" id="tdue" aria-label="Tests" hidden></div>
       <div class="jobs" id="jobs" aria-label="Jobs due now"></div>
       <div id="jlines"></div>
       <div class="trk priv" id="trk" aria-label="Last added" hidden></div>
-      <div class="tdue priv brd" id="tdue" aria-label="Tests" hidden></div>
       <div class="updet" id="upDet"></div>
     </div>
   </div>
@@ -3056,7 +3085,8 @@ function jobPopHtml(t, i){
   if (d) {
     var lbl = t.type === 'product' ? 'Dose' : t.type === 'slow' ? 'Fill with' : 'Add';
     var m = /^<b>([^<]*)<\/b>\s*([\s\S]*)$/.exec(d.html);
-    h += '<div class="jdose"><span class="k">' + lbl + '</span><span class="v">' + (m ? '<b>' + m[1] + '</b> ' + m[2] : d.html) + '</span></div>';
+    h += '<div class="jdose' + (jobCanLog(t) ? ' haslog' : '') + '"><span class="kv"><span class="k">' + lbl + '</span><span class="v">' + (m ? '<b>' + m[1] + '</b> ' + m[2] : d.html) + '</span></span>' +
+      (jobCanLog(t) ? '<button type="button" class="pri" data-jlog="' + i + '">Log it</button>' : '') + '</div>';
   }
   if (feedJob(t)) h += feedLineHtml();
   if (acidJob(t)) h += acidLineHtml();
@@ -3130,9 +3160,12 @@ function jobPutOffUntil(t, n){
   return daysBetween(today, u) > 60 ? addDays(today, 60) : u;
 }
 function jobShort(day){ var k = daysBetween(todayCentral(), day); return k === 1 ? 'tomorrow' : k <= 6 ? fmtDayLong(day).slice(0, 3) : fmtDay(day, false); }
+/** Can this person log the job here? (Then "Log it" sits in the blue dose box, or under it when there is no amount.) */
+function jobCanLog(t){ return t.type !== 'test' && !t.err && isBrd() && DATA.canEnter; }
 function jobActHtml(t, i){
-  if (t.type === 'test' || t.err || !isBrd() || !DATA.canEnter) return '';
-  var h = '<div class="jact"><button type="button" class="pri" data-jlog="' + i + '">Log it</button>' +
+  if (!jobCanLog(t)) return '';
+  var inDose = !!jobDose(t);
+  var h = '<div class="jact">' + (inDose ? '' : '<button type="button" class="pri" data-jlog="' + i + '">Log it</button>') +
     (t.warn != null || t.over != null ? '<button type="button" data-jnot="' + i + '" aria-expanded="' + (jobNotYet === i) + '">Not yet…</button>' : '') + '</div>';
   if (jobNotYet === i) {
     if (jobIsAcid(t) && t.events && t.events.length) {
@@ -4391,13 +4424,21 @@ function nowSummary(M){
   if (stTop === 'g' && (unsure.length || bad.length || fcLow || fcHigh)) stTop = 'y';      // the FC forecast alone never tints it: only once FC is low
   var c = M.r.csi, csi = '';
   if (c) {
-    var cs = nowStatus('CSI', c.v), dom = [-0.6, 0.6], gb = nowGreen('CSI') || {lo: -0.1, hi: 0.3};
+    var cs = nowStatus('CSI', c.v), dom = [-0.6, 0.6];
     var px = function(v){ return (Math.max(dom[0], Math.min(dom[1], v)) - dom[0]) / (dom[1] - dom[0]) * 88; };
-    csi = '<button type="button" class="ncsi" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '"><span class="lb">CSI</span><span class="nn">≈' + nowFmt('csi', c.v) + '</span>' +
-      (cs.txt ? '<span class="ns ' + cs.cls + '">' + cs.txt + '</span>' : '') +
-      '<svg viewBox="0 0 88 10" width="88" height="10" aria-hidden="true"><rect x="0" y="3" width="88" height="4" rx="2" class="ntrack"/><rect x="' + px(gb.lo).toFixed(1) + '" y="3" width="' + (px(gb.hi) - px(gb.lo)).toFixed(1) + '" height="4" class="ngood"/><circle cx="' + px(c.v).toFixed(1) + '" cy="5" r="4" fill="var(--k-csi)"/></svg></button>';
+    // CSI box (2026-10-14): "CSI", the number in its color (no pill), and a range bar with every Ranges color, faded
+    // (the same breakpoints as the + panel's CSI bar) with a tick at the number
+    var cuts = [dom[0], dom[1]], bars = '';
+    bandsFor('CSI').forEach(function(b){ [b.min, b.max].forEach(function(x){ if (isNum(x) && x > dom[0] && x < dom[1] && cuts.indexOf(x) < 0) cuts.push(x); }); });
+    cuts.sort(function(a, b){ return a - b; });
+    for (var ci = 0; ci < cuts.length - 1; ci++) {
+      var bc = colorOf('CSI', (cuts[ci] + cuts[ci + 1]) / 2);
+      if (bc) bars += '<i class="nb ' + esc(bc) + '" style="left:' + (px(cuts[ci]) / 0.88).toFixed(1) + '%;width:' + ((px(cuts[ci + 1]) - px(cuts[ci])) / 0.88).toFixed(1) + '%"></i>';
+    }
+    csi = '<button type="button" class="ncsi" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '" aria-label="CSI ' + nowFmt('csi', c.v) + (cs.txt ? ', ' + cs.txt : '') + '"><span class="lb">CSI</span><span class="nn ' + cs.cls + '">' + nowFmt('csi', c.v) + '</span>' +
+      '<span class="nbarw" aria-hidden="true"><span class="nbar">' + bars + '</span><i class="ntick" style="left:' + (px(c.v) / 0.88).toFixed(1) + '%"></i></span></button>';
   }
-  return '<div class="nsum" data-st="' + stTop + '"><div class="nhd"><h2>Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
+  return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
     (nowOpen.csi ? nowCsiDetail(M) : '');
 }
 
@@ -5506,12 +5547,14 @@ window.addEventListener('message', function(e){
 // (a full page reload can lose the saved passcode inside the hosting frame); locked -> publicData(). Keeps the
 // current view, date range and toggles. For the Manager it then checks for new backup files too (importQuiet).
 var refreshMsgT = null;
-function refreshNow(){
+/** after (optional) = called when it is done, either way (pull to refresh hides its circle then). */
+function refreshNow(after){
   var b = $('refreshBtn');
-  if (b.disabled) return;
+  if (b.disabled){ if (typeof after === 'function') after(); return; }
   b.disabled = true; b.classList.add('spin'); b.setAttribute('aria-busy', 'true');
   function finish(msg, isErr){
     b.disabled = false; b.classList.remove('spin'); b.removeAttribute('aria-busy');
+    if (typeof after === 'function') after();
     showStatus(msg, isErr);
     clearTimeout(refreshMsgT); refreshMsgT = setTimeout(function(){ showStatus(''); }, isErr ? 6000 : 2500);
   }
@@ -5530,6 +5573,63 @@ function refreshNow(){
     }, fail);
   }
 }
+
+/* ------------------------------------------------------------ pull to refresh (2026-10-14) */
+// At the top of the page, pull down: a round arrow follows the finger; let go past the line = refreshNow() (the ↻ button).
+// Safari's own pull-to-refresh (a full reload) is turned off by overscroll-behavior on <html>, so only this one runs.
+(function(){
+  var PULL = 70, MAX = 110, y0 = null, dy = 0, busy = false, el = null, armed = false;
+  function node(){
+    if (!el){
+      el = document.createElement('div'); el.className = 'ptr'; el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg>';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function show(d){
+    var n = node(), f = Math.min(1, d / PULL);
+    n.style.transition = 'none';
+    n.style.transform = 'translate(-50%,' + Math.round(d - 50) + 'px) rotate(' + Math.round(f * 300) + 'deg)';
+    n.style.opacity = Math.min(1, f * 1.4);
+    n.classList.toggle('go', d >= PULL);
+  }
+  function hide(){
+    if (!el) return;
+    el.style.transition = 'transform .25s ease, opacity .25s ease';
+    el.style.transform = 'translate(-50%,-50px)'; el.style.opacity = 0;
+    el.classList.remove('go', 'spin');
+  }
+  function blocked(t){
+    if (busy) return true;
+    if ((window.scrollY || document.documentElement.scrollTop) > 0) return true;
+    if (document.querySelector('dialog[open], #eGrow.big, .chipPop.show')) return true;
+    return !!(t && t.closest && t.closest('#entryUi, .chipPop, dialog, input, textarea, select, .nscroll, .tdue'));
+  }
+  document.addEventListener('touchstart', function(e){
+    y0 = null; dy = 0; armed = false;
+    if (e.touches.length !== 1 || blocked(e.target)) return;
+    y0 = e.touches[0].clientY;
+  }, {passive: true});
+  document.addEventListener('touchmove', function(e){
+    if (y0 === null) return;
+    var d = e.touches[0].clientY - y0;
+    if (d <= 0 || (window.scrollY || document.documentElement.scrollTop) > 0){ if (armed){ armed = false; hide(); } return; }
+    armed = true; dy = Math.min(MAX, d * 0.5); show(dy);
+  }, {passive: true});
+  function end(){
+    if (y0 === null) return;
+    y0 = null;
+    if (!armed) return;
+    armed = false;
+    if (dy < PULL){ hide(); return; }
+    busy = true;
+    var n = node(); n.style.transition = 'transform .2s ease'; n.style.transform = 'translate(-50%,' + (PULL - 50) + 'px)'; n.classList.add('spin');
+    refreshNow(function(){ busy = false; hide(); });
+  }
+  document.addEventListener('touchend', end, {passive: true});
+  document.addEventListener('touchcancel', function(){ y0 = null; if (armed){ armed = false; hide(); } }, {passive: true});
+})();
 
 /* ------------------------------------------------------------ backup import (2026-10-09: no menu item any more) */
 // Pool Math backups still come in by the iPhone Shortcut and the 6-hour import. For the Manager, Refresh also checks the
@@ -6181,7 +6281,7 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){ var a = document.activeElement; if (!a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) settleTaps(); }, 60);
   });
   $('lockBtn').addEventListener('click', function(){ lockNow(''); });
-  $('refreshBtn').addEventListener('click', refreshNow);
+  $('refreshBtn').addEventListener('click', function(){ refreshNow(); });
   // Review removed tests (Manager): each with Bring back
   var RM_KEYS = [['fc','FC'], ['cc','CC'], ['ph','pH'], ['ta','TA'], ['ch','CH'], ['cya','CYA'], ['tempF','Temp'], ['salt','Salt'], ['bor','Borates'], ['csi','CSI']];
   function rmRender(msg){
