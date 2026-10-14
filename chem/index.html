@@ -735,6 +735,7 @@ html{overscroll-behavior-y:none}
   .chip .l{font-size:10px}
   .chip .g{top:3px;right:3px;width:11px;height:11px;line-height:11px;font-size:7px}
   .chip.csi{grid-column:6}
+  .chips[data-wide]{grid-template-columns:var(--wcols)}   /* a 4-digit reading: its column only as wide as it needs (chipsWide) */
   .wx{font-size:12.5px}
 }
 
@@ -2340,6 +2341,20 @@ function numHtml(key, v){
   var t = fmtNum(v);
   return key === 'csi' ? t.replace(/^(-?)0(\.)/, '$1<span class="lz">0</span>$2') : t;
 }
+/** Phones (2026-10-14): a 4-digit reading (CH 1025, salt 3200) doesn't fit a sixth of the row, so its column takes just the
+ *  room its number needs ("auto") and the other five share the rest. Only that card changes; style used by the phone CSS
+ *  (.chips[data-wide]). Position: the tiles fill columns 1-5 of the first row (CSI is fixed in 6), then 1-6 below. */
+function chipsWide(t){
+  var cols = ['1fr', '1fr', '1fr', '1fr', '1fr', '1fr'], wide = false, i = 0;
+  COLS.forEach(function(c){
+    var v = t[c[0]];
+    if (!isNum(v)) return;
+    var col = c[0] === 'csi' ? 5 : (i < 5 ? i : (i - 5) % 6);
+    if (c[0] !== 'csi') i++;
+    if (fmtNum(v).replace(/\D/g, '').length >= 4) { cols[col] = 'auto'; wide = true; }
+  });
+  return wide ? ' data-wide style="--wcols:' + cols.join(' ') + '"' : '';
+}
 function chipHtml(c, t){
   var v = t[c[0]];
   if (!isNum(v)) return '';
@@ -2392,7 +2407,7 @@ function testCard(t){
     (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden</span>' : '') +
     (t.parts ? '<button type="button" class="join-tag emk" data-ek="parts" data-eid="' + esc(t.id) + '" title="Logged as ' + t.parts.length + ' entries, shown as one test">' + t.parts.length + ' entries</button>' : '') + '</span>' +
     '<span class="rhs">' + wxHtml(t.w) + mk + '</span></div>' +
-    '<div class="chips">' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
+    '<div class="chips"' + chipsWide(t) + '>' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
 }
 var AFFECT_LABEL = {fc:'FC', cc:'CC', ph:'pH', ta:'TA', ch:'CH', cya:'CYA', salt:'SALT', bor:'BOR'};
 function money(n){ if (n == null || !isFinite(n)) return "–"; return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
