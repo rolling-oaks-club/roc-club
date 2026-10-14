@@ -1578,15 +1578,18 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ncsi .lb{font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--k-csi)}
 .ncsi .nn{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1.05;font-variant-numeric:tabular-nums}
 .ncsi svg{margin-top:3px}
-/* CSI box trial (2026-10-14): never taller than the tags + sentence beside it (it stretches to their height) */
+/* CSI box (2026-10-14): never taller than the tags + sentence beside it (it stretches to their height) */
 .nsum .ncsi{align-self:stretch;min-height:0}
-.ncsi.lk-a{width:auto;min-width:96px;padding:6px 10px;gap:5px}
-.ncsi.lk-a .nn{display:flex;align-items:baseline;gap:5px}
-.ncsi.lk-a .nn .lb{font-size:11px}
-.ncsi.lk-b{padding:6px 6px;gap:2px}
-.ncsi.lk-b .nn.g{color:var(--okInk)} .ncsi.lk-b .nn.y{color:color-mix(in srgb,var(--yellow) 55%,var(--ink))} .ncsi.lk-b .nn.r{color:var(--red)} .ncsi.lk-b .nn.p{color:var(--purple)}
-.ncsi .nb{opacity:.3} .ncsi .nb.green{fill:var(--green)} .ncsi .nb.yellow{fill:var(--yellow)} .ncsi .nb.red{fill:var(--red)} .ncsi .nb.purple{fill:var(--purple)}
-.ncsi .ntrack{fill:var(--soft)} .ncsi .ngood{fill:var(--okInk);opacity:.35}
+.ncsi{position:relative;padding:6px 6px 26px;gap:1px}
+.ncsi .lb{font-size:13px}
+.ncsi .nn.g{color:var(--okInk)} .ncsi .nn.y{color:color-mix(in srgb,var(--yellow) 55%,var(--ink))} .ncsi .nn.r{color:var(--red)} .ncsi .nn.p{color:var(--purple)}
+/* the range bar: a pill nestled in the tile's bottom corners - 8px in from the sides and bottom, ends rounded 6px = the tile's 14 minus 8, so the curves run parallel */
+.ncsi .nbarw{position:absolute;left:8px;right:8px;bottom:8px;height:12px}
+.ncsi .nbar{position:absolute;inset:0;border-radius:6px;overflow:hidden;background:var(--soft)}
+.ncsi .nbar i{position:absolute;top:0;bottom:0}
+.ncsi .nb{opacity:.3}
+.ncsi .nb.green{background:var(--green)} .ncsi .nb.yellow{background:var(--yellow)} .ncsi .nb.red{background:var(--red)} .ncsi .nb.purple{background:var(--purple)}
+.ncsi .nbarw .ntick{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 1px var(--card)}   /* a little taller than the bar */
 .ntile{background:var(--card);border-radius:18px;padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px}
 .nhead,.ntop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer}
 .ntop{cursor:default}
@@ -1686,7 +1689,6 @@ html.top-wash .ntag.y,html.top-wash .ncsi .ns.y{background:color-mix(in srgb,var
 html.top-wash .ntag.r,html.top-wash .ncsi .ns.r{background:color-mix(in srgb,var(--red) 20%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red) 55%,transparent)}
 html.top-wash .ntag.p,html.top-wash .ncsi .ns.p{background:color-mix(in srgb,var(--purple) 20%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--purple) 50%,transparent)}
 /* things that were tinted against the old near-white page and would vanish on the grey one */
-.ncsi .ntrack{fill:var(--line)}
 .chipPop .jpost{background:var(--soft)}
 .status{background:var(--card)}
 .skel .sk{background:var(--card)}
@@ -3629,8 +3631,7 @@ var NOW_SPAN = {fc:4, cc:4, ph:4, ta:25, ch:25, cya:25, csi:25, tempF:12};      
 /** Calcium hardness of our well water, which refill water brings in: one number for everyone, set on the CH tile (server saveWellCh). */
 function nowWellCh(){ return isNum(DATA.wellCh) ? DATA.wellCh : 200; }
 var nowEditW = false, nowWDraft = 200, nowWMsg = '', nowWBusy = false;
-var NOW_QUIET = {ch: 900};
-var NOW_CSI_LOOK = /[?&]csi=b\b/.test(location.search) ? 'b' : 'a';   // Pool right now CSI box trial (2026-10-14)       // Pool right now box: not mentioned in the sentence until above this (our CH always runs high); its tag keeps its color
+var NOW_QUIET = {ch: 900};       // Pool right now box: not mentioned in the sentence until above this (our CH always runs high); its tag keeps its color
 var NOW_SPAN_BIG = {fc:30, cc:30, ph:30, ta:120, ch:120, cya:120, csi:120, tempF:60};  // opened tile
 var NOW_BACK = {fc:90, cc:90, ph:90, ta:365, ch:365, cya:365, csi:365, tempF:88};         // days a chart can scroll back
 var NOW_BACK_BIG = {fc:365, cc:365, ph:365, ta:365, ch:365, cya:365, csi:365, tempF:88};
@@ -4423,24 +4424,19 @@ function nowSummary(M){
   if (stTop === 'g' && (unsure.length || bad.length || fcLow || fcHigh)) stTop = 'y';      // the FC forecast alone never tints it: only once FC is low
   var c = M.r.csi, csi = '';
   if (c) {
-    var cs = nowStatus('CSI', c.v), dom = [-0.6, 0.6], gb = nowGreen('CSI') || {lo: -0.1, hi: 0.3};
+    var cs = nowStatus('CSI', c.v), dom = [-0.6, 0.6];
     var px = function(v){ return (Math.max(dom[0], Math.min(dom[1], v)) - dom[0]) / (dom[1] - dom[0]) * 88; };
-    // two looks on trial (2026-10-14): a = "CSI" on the number's line + pill, no bar; b (?csi=b) = number in its color, no pill,
-    // bar with every Ranges color, mild (the same breakpoints as the + panel's CSI bar)
-    if (NOW_CSI_LOOK === 'b') {
-      var cuts = [dom[0], dom[1]], bars = '';
-      bandsFor('CSI').forEach(function(b){ [b.min, b.max].forEach(function(x){ if (isNum(x) && x > dom[0] && x < dom[1] && cuts.indexOf(x) < 0) cuts.push(x); }); });
-      cuts.sort(function(a, b){ return a - b; });
-      for (var ci = 0; ci < cuts.length - 1; ci++) {
-        var bc = colorOf('CSI', (cuts[ci] + cuts[ci + 1]) / 2);
-        if (bc) bars += '<rect x="' + px(cuts[ci]).toFixed(1) + '" y="3" width="' + (px(cuts[ci + 1]) - px(cuts[ci])).toFixed(1) + '" height="4" class="nb ' + esc(bc) + '"/>';
-      }
-      csi = '<button type="button" class="ncsi lk-b" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '" aria-label="CSI ' + nowFmt('csi', c.v) + (cs.txt ? ', ' + cs.txt : '') + '"><span class="lb">CSI</span><span class="nn ' + cs.cls + '">≈' + nowFmt('csi', c.v) + '</span>' +
-        '<svg viewBox="0 0 88 10" width="88" height="10" aria-hidden="true"><rect x="0" y="3" width="88" height="4" rx="2" class="ntrack"/>' + bars + '<circle cx="' + px(c.v).toFixed(1) + '" cy="5" r="4" fill="var(--ink)" stroke="var(--card)" stroke-width="1.5"/></svg></button>';
-    } else {
-      csi = '<button type="button" class="ncsi lk-a" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '"><span class="nn"><span class="lb">CSI</span>≈' + nowFmt('csi', c.v) + '</span>' +
-        (cs.txt ? '<span class="ns ' + cs.cls + '">' + cs.txt + '</span>' : '') + '</button>';
+    // CSI box (2026-10-14): "CSI", the number in its color (no pill), and a range bar with every Ranges color, faded
+    // (the same breakpoints as the + panel's CSI bar) with a tick at the number
+    var cuts = [dom[0], dom[1]], bars = '';
+    bandsFor('CSI').forEach(function(b){ [b.min, b.max].forEach(function(x){ if (isNum(x) && x > dom[0] && x < dom[1] && cuts.indexOf(x) < 0) cuts.push(x); }); });
+    cuts.sort(function(a, b){ return a - b; });
+    for (var ci = 0; ci < cuts.length - 1; ci++) {
+      var bc = colorOf('CSI', (cuts[ci] + cuts[ci + 1]) / 2);
+      if (bc) bars += '<i class="nb ' + esc(bc) + '" style="left:' + (px(cuts[ci]) / 0.88).toFixed(1) + '%;width:' + ((px(cuts[ci + 1]) - px(cuts[ci])) / 0.88).toFixed(1) + '%"></i>';
     }
+    csi = '<button type="button" class="ncsi" id="nowCsiBtn" aria-expanded="' + !!nowOpen.csi + '" aria-label="CSI ' + nowFmt('csi', c.v) + (cs.txt ? ', ' + cs.txt : '') + '"><span class="lb">CSI</span><span class="nn ' + cs.cls + '">' + nowFmt('csi', c.v) + '</span>' +
+      '<span class="nbarw" aria-hidden="true"><span class="nbar">' + bars + '</span><i class="ntick" style="left:' + (px(c.v) / 0.88).toFixed(1) + '%"></i></span></button>';
   }
   return '<div class="uprow nhd"><h2 class="seclbl">Pool right now</h2><span class="nat">' + esc(nowClock(M.now).replace(/^\w+ /, '')) + '</span></div><div class="nsum" data-st="' + stTop + '"><div class="nl"><div class="ntags">' + tags + '</div><p class="nsay">' + esc(say.join(' ')) + '</p></div>' + csi + '</div>' +
     (nowOpen.csi ? nowCsiDetail(M) : '');
