@@ -8,7 +8,7 @@
 <script>
 // Server calls: this page is not inside Apps Script, so google.script.run.x(...) is sent to the web app's doPost.
 (function(){
-  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
+  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction","pushKey","pushSubscribe","pushUnsubscribe","pushDevices","pushTest"];
   // Calls that only read (sign-in, data, calendar) are tried up to twice more when the reply is lost on the way back
   // (Safari: "Load failed"; it happens now and then with Apps Script). Saves are never repeated.
   var SAFE = ["whoAmI","unlock","publicData","importProgress","getRulesInfo","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","getSiteText","accessVolunteerList","accessNameCheck"];
@@ -552,6 +552,7 @@ body:not(.unlocked) .up,body:not(.unlocked) .histrow{display:none !important}
 /* sign-in levels (body.lvl-member / lvl-board / lvl-manager): .brd = Board and Manager, .mgr = Manager only */
 body:not(.lvl-board):not(.lvl-manager) .brd{display:none !important}
 body:not(.lvl-manager) .mgr{display:none !important}
+html:not(.nfysite) #mnNotify{display:none !important}   /* notifications: only on the GitHub site (the service worker lives there) */
 body:not(.is-vol) .volonly{display:none !important}
 body.is-vol .novol{display:none !important}   /* named people sign out from My login (2026-10-09) */
 #moreBtn,#eMore{position:relative}
@@ -1720,6 +1721,11 @@ dialog.pop.wide{max-width:1040px}
 .popbig span{font-size:15px;color:var(--ink2);font-weight:500}
 .popstats{display:flex;gap:4px 16px;flex-wrap:wrap;margin-top:6px;font-size:14px;color:var(--ink2)}
 .popstats b{color:var(--ink);font-weight:600}
+.nfyst{display:flex;align-items:center;gap:10px;margin:6px 4px 0;font-size:16px;font-weight:600}
+.nfyst i{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}.nfyst.on i{background:var(--green)}
+.nfyrules{margin:0 4px;padding-left:18px;font-size:14px;line-height:1.45}.nfyrules li{margin:2px 0}
+.nfydev{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.nfydev:last-child{border-bottom:0}.nfydev span{flex:1;min-width:0}.nfydev small{display:block;color:var(--muted)}.nfydev .btn{min-height:34px;padding:4px 12px}
 .popsec{margin:18px 4px 6px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .popgrp{background:var(--soft);border-radius:14px;padding:8px}
 .poplist{padding:0 12px}
@@ -1851,6 +1857,7 @@ dialog.pop.wide{max-width:1040px}
   <button type="button" class="mrow priv mgr" id="mnRemoved">Review removed tests</button>
   <button type="button" class="mrow priv mgr" id="mnFeeders">Feeders</button>
   <button type="button" class="mrow priv brd" id="mnPrices">Prices</button>
+  <button type="button" class="mrow priv mgr" id="mnNotify">Notifications</button>
   <button type="button" class="mrow priv mgr" id="mnVols">Volunteers</button>
   <button type="button" class="mrow priv volonly" id="mnChgPw">My login</button>
   <button type="button" class="mrow priv novol" id="mnLock">Sign out</button>
@@ -2014,6 +2021,26 @@ dialog.pop.wide{max-width:1040px}
   <p class="hint" style="margin:6px 0 0">Signs out on this phone or computer only.</p>
   </div>
   <div class="popfoot"><div class="err" id="chgErr" role="alert"></div><button class="btn primary" type="submit" form="chgForm" id="chgGo">Change password</button></div>
+</dialog>
+
+<dialog id="nfyDlg" class="pop" aria-labelledby="nfyH">
+  <div class="pophead"><div><h2 id="nfyH">Notifications</h2><span class="popsub">Alerts on this phone, for the Manager</span></div><button type="button" class="popx" id="nfyX" aria-label="Close">×</button></div>
+  <div class="popbody">
+  <div class="nfyst" id="nfySt"><i></i><span>Checking…</span></div>
+  <p class="hint" id="nfyHint" style="margin:6px 4px 0"></p>
+  <div class="row" style="margin-top:10px;justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" type="button" id="nfyOn" hidden>Turn on for this phone</button>
+    <button class="btn" type="button" id="nfyTest" hidden>Send a test</button><button class="btn" type="button" id="nfyOff" hidden>Turn off</button></div>
+  <div class="err" id="nfyErr" role="alert"></div>
+  <div class="popsec">What you get</div>
+  <ul class="nfyrules">
+    <li><b>Right away:</b> a reading in the red (not OK to swim, or CSI), anything logged by someone else, a new volunteer sign-up.</li>
+    <li><b>Morning summary</b> (7:45 AM weekdays, 8:30 AM weekends): feeders running low, low or out of stock, overdue jobs and tests.</li>
+    <li><b>6 PM:</b> a test due today and none logged.</li>
+    <li>Nothing from 10 PM to 7:30 AM: what came in waits until then.</li>
+  </ul>
+  <div class="popsec">Phones that get them</div>
+  <div id="nfyDevs"><p class="hint" style="margin:0 4px">None yet.</p></div>
+  </div>
 </dialog>
 
 <dialog id="unlockDlg" class="pop" aria-labelledby="siHead">
@@ -5434,6 +5461,91 @@ function setWaiting(n){
   });
   $('mnVols').innerHTML = 'Volunteers' + (n ? '&nbsp;<span style="color:var(--red);font-weight:600">(' + n + ' waiting)</span>' : '');
 }
+/* ------------------------------------------------------------ notifications (Manager, 2026-10-14; server Notify.gs, worker chem/sw.js)
+   The phone subscribes with our public key (pushKey) and hands the subscription to pushSubscribe. Works only on the GitHub
+   site (html.nfysite) and, on an iPhone, only in the home-screen app (iOS 16.4+). */
+var NFY_SITE = /(^|\.)rollingoaksclub\.org$|github\.io$|^localhost$|^127\./.test(location.hostname);
+if (NFY_SITE) document.documentElement.classList.add('nfysite');
+var nfyKey = null, nfyReg = null, nfyBusy = false;
+function nfyCan(){ return NFY_SITE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function nfyIos(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function nfyLabel(){ var u = navigator.userAgent; return /iPad/.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android phone' : 'Computer'; }
+function nfyKeyBytes(k){ var s = atob(k.replace(/-/g, '+').replace(/_/g, '/')), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+function nfySub(){ return nfyReg ? nfyReg.pushManager.getSubscription() : Promise.resolve(null); }
+function nfyShow(on, devs){
+  var st = $('nfySt'); st.classList.toggle('on', !!on);
+  st.querySelector('span').textContent = on ? 'On for this phone' : 'Off for this phone';
+  $('nfyOn').hidden = !!on || !nfyCan(); $('nfyOff').hidden = !on; $('nfyTest').hidden = !on;
+  $('nfyHint').textContent = nfyCan() ? (on ? '' : 'Your phone will ask to allow notifications: tap Allow.') :
+    nfyIos() ? 'On an iPhone this works only in the Pool Log app: open it from its home-screen icon (iOS 16.4 or newer).' : 'This browser can\'t get notifications.';
+  var box = $('nfyDevs');
+  if (!devs) return;
+  box.textContent = '';
+  if (!devs.length){ box.innerHTML = '<p class="hint" style="margin:0 4px">None yet.</p>'; return; }
+  devs.forEach(function(d){
+    var row = document.createElement('div'); row.className = 'nfydev';
+    row.innerHTML = '<span>' + esc(d.label) + (d.mine ? ' <b>(this one)</b>' : '') + '<small>' + esc((d.who ? d.who + ' · ' : '') + 'since ' + d.since +
+      (d.last ? ' · last sent ' + d.last : '') + (d.ok ? '' : ' · not reaching it')) + '</small></span>';
+    if (!d.mine){ var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Remove';
+      b.addEventListener('click', function(){ nfyCall('pushUnsubscribe', function(ep){ return [CODE, ep, d.id]; }); }); row.appendChild(b); }
+    box.appendChild(row);
+  });
+}
+function nfyErr(t, good){
+  var e = $('nfyErr'); e.style.color = good ? 'var(--green)' : ''; e.textContent = t || '';
+  var st = $('nfySt').querySelector('span'); if (t && !good && st.textContent === 'Checking…') st.textContent = 'Could not check';
+}
+/** A Manager call that answers with {on, devices}; args(ep) builds its arguments from this phone's push address. */
+function nfyCall(fn, args, then){
+  nfySub().then(function(sub){
+    var ep = sub ? sub.endpoint : '';
+    serverCall(fn, args(ep), function(res){
+      if (handleDenied(res)) return;
+      if (!res || !res.ok){ nfyErr((res && res.message) || 'Could not reach the server.'); return; }
+      if (res.devices) nfyShow(res.on, res.devices);
+      if (then) then(res, sub);
+    }, function(){ nfyErr('Could not reach the server. Try again.'); });
+  });
+}
+function openNotify(){
+  nfyErr(''); nfyShow(false, null); $('nfySt').querySelector('span').textContent = 'Checking…';
+  openDlg('nfyDlg');
+  if (!nfyCan()){ nfyShow(false, null); nfyCall('pushDevices', function(ep){ return [CODE, ep]; }); return; }
+  if (!nfyKey) serverCall('pushKey', [], function(res){ if (res && res.key) nfyKey = res.key; }, function(){});
+  navigator.serviceWorker.register('sw.js').then(function(reg){ nfyReg = reg; return navigator.serviceWorker.ready; })
+    .then(function(reg){ nfyReg = reg; nfyCall('pushDevices', function(ep){ return [CODE, ep]; }); })
+    .catch(function(){ nfyErr('The notification helper could not start on this phone.'); });
+}
+function nfyTurnOn(){
+  if (nfyBusy) return;
+  if (!nfyKey || !nfyReg){ nfyErr('Still getting ready, try again in a second.'); return; }
+  nfyBusy = true; nfyErr('Turning on…', true);
+  Notification.requestPermission().then(function(p){       // straight from the tap: iPhones ask only then
+    if (p !== 'granted') throw new Error(p === 'denied' ? 'denied' : 'no');
+    return nfyReg.pushManager.getSubscription().then(function(s){
+      return s || nfyReg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: nfyKeyBytes(nfyKey)});
+    });
+  }).then(function(sub){
+    serverCall('pushSubscribe', [CODE, sub.toJSON(), nfyLabel()], function(res){
+      nfyBusy = false;
+      if (handleDenied(res)) return;
+      if (!res || !res.ok){ nfyErr((res && res.message) || 'Could not turn on.'); return; }
+      nfyShow(res.on, res.devices); nfyErr('On. Tap Send a test to try it.', true);
+    }, function(){ nfyBusy = false; nfyErr('Could not reach the server. Try again.'); });
+  }).catch(function(e){
+    nfyBusy = false;
+    nfyErr(e && e.message === 'denied' ? 'Notifications are blocked for Pool Log. Allow them in the iPhone Settings app → Notifications → Pool Log, then try again.' :
+      e && e.message === 'no' ? 'Notifications were not allowed.' : 'Could not turn on on this phone.');
+  });
+}
+function nfyTurnOff(){
+  nfyErr('');
+  nfyCall('pushUnsubscribe', function(ep){ return [CODE, ep, '']; }, function(res, sub){ if (sub) sub.unsubscribe().catch(function(){}); nfyErr('Off for this phone.', true); });
+}
+function nfyTestSend(){
+  nfyErr('Sending…', true);
+  nfyCall('pushTest', function(ep){ return [CODE, ep]; }, function(res){ nfyErr(res.message, true); });
+}
 function openChgPw(){
   loadAliases();
   ['chgCur', 'chgNew', 'chgNew2'].forEach(function(id){ $(id).value = ''; pwShow($(id), false); });
@@ -6216,6 +6328,11 @@ document.addEventListener('DOMContentLoaded', function(){
   $('mnPrices').addEventListener('click', function(){ closeDlg('menuDlg'); openPrices(); });
   $('mnLock').addEventListener('click', function(){ closeDlg('menuDlg'); lockNow(''); });
   $('mnChgPw').addEventListener('click', function(){ closeDlg('menuDlg'); openChgPw(); });
+  $('mnNotify').addEventListener('click', function(){ closeDlg('menuDlg'); openNotify(); });
+  $('nfyX').addEventListener('click', function(){ closeDlg('nfyDlg'); });
+  $('nfyOn').addEventListener('click', nfyTurnOn);
+  $('nfyOff').addEventListener('click', nfyTurnOff);
+  $('nfyTest').addEventListener('click', nfyTestSend);
   $('akaSave').addEventListener('click', saveAliases);
   $('mnVols').addEventListener('click', function(){
     closeDlg('menuDlg');
@@ -6510,7 +6627,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var KIND = {test: ['test', 'var(--accent)', 'Save test'], note: ['note', 'var(--ink2)', 'Save note'], pump: ['pump reading', 'var(--water)', 'Save reading'],
     chem: ['chemical', 'var(--k-fc)', 'Save chemical'],
     vols: ['Volunteers', 'var(--red)', '']};
-  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnFeeders": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>"};
+  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnFeeders": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>", "mnNotify": "<path d=\"M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>"};
   ICON.vols = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' + MENU_ICONS.mnVols + '</svg>';
   // key, label, unit, unusual below, unusual above (yellow "Check this number"; the server refuses only impossible ones)
   var GROUPS = [
@@ -6549,7 +6666,7 @@ document.addEventListener('DOMContentLoaded', function(){
   $('eScrim').addEventListener('click', function(){ if (grow.hidden){ setOpen(false); setMenu(false); } });
   // The ⋯ as bubbles: one pill per menu row that is showing for this sign-in, nearest the ⋯ first (MENU_BOTTOM_UP), with
   // the menu's small info lines as a caption on top. A pill does what its row does; Volunteers grows into its panel.
-  var MENU_BOTTOM_UP = ['mnPrint', 'mnSignIn', 'mnRefresh', 'mnPrices', 'mnRemoved', 'mnFeeders', 'mnVols', 'mnChgPw', 'mnLock'];
+  var MENU_BOTTOM_UP = ['mnPrint', 'mnSignIn', 'mnRefresh', 'mnPrices', 'mnRemoved', 'mnFeeders', 'mnNotify', 'mnVols', 'mnChgPw', 'mnLock'];
   function setMenu(o){
     if (o) buildMenuBubbles();
     ui.classList.toggle('menu', o);
