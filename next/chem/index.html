@@ -8,7 +8,7 @@
 <script>
 // Server calls: this page is not inside Apps Script, so google.script.run.x(...) is sent to the web app's doPost.
 (function(){
-  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction"];
+  var API = 'https://script.google.com/macros/s/AKfycbzLpS38sr24wHiNVOI8ZdR_hiHaMhLyOcp51w-Rek-U9yTLJZ3FEIwJn5sZSwnzSPgz/exec', FNS = ["unlock","publicData","pageImport","importProgress","saveMark","savePrice","deletePrice","savePrintPrefs","saveTrackerTiming","saveStockCount","setChemInactive","calcSave","calcNote","saveTest","saveNote","saveChems","saveJobCheck","saveWellCh","saveFeeder","saveAcidFeeder","setFeederRunning","deleteEntry","accessChangePassword","accessNameCheck","accessAliases","accessVolunteerList","accessVolunteerAction","pushKey","pushSubscribe","pushUnsubscribe","pushDevices","pushTest"];
   // Calls that only read (sign-in, data, calendar) are tried up to twice more when the reply is lost on the way back
   // (Safari: "Load failed"; it happens now and then with Apps Script). Saves are never repeated.
   var SAFE = ["whoAmI","unlock","publicData","importProgress","getRulesInfo","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","getSiteText","accessVolunteerList","accessNameCheck"];
@@ -552,6 +552,7 @@ body:not(.unlocked) .up,body:not(.unlocked) .histrow{display:none !important}
 /* sign-in levels (body.lvl-member / lvl-board / lvl-manager): .brd = Board and Manager, .mgr = Manager only */
 body:not(.lvl-board):not(.lvl-manager) .brd{display:none !important}
 body:not(.lvl-manager) .mgr{display:none !important}
+html:not(.nfysite) #mnNotify{display:none !important}   /* notifications: only on the GitHub site (the service worker lives there) */
 body:not(.is-vol) .volonly{display:none !important}
 body.is-vol .novol{display:none !important}   /* named people sign out from My login (2026-10-09) */
 #moreBtn,#eMore{position:relative}
@@ -579,7 +580,8 @@ body.loading .gate{display:none !important}
 @media (prefers-reduced-motion:reduce){.skel .sk{animation:none}}
 .gate p{margin:0 0 16px;color:var(--muted);line-height:1.45}
 .lvlnote{font-size:13px;color:var(--muted);margin:0 0 10px}
-.card.thid{opacity:.55;border-style:dashed}
+.card.thid{border-style:dashed}   /* not faded (2026-10-14): the Manager reads it like any other test */
+.card.test .head .time{white-space:nowrap}
 .thid-tag{color:var(--muted);font-size:12px;font-weight:600;margin-left:8px}
 .head .emk.join-tag{margin:0 0 0 8px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12px;font-weight:600;white-space:nowrap}
 .rmrow .btn.sm{padding:6px 10px;font-size:13px;min-height:0}
@@ -733,6 +735,7 @@ html{overscroll-behavior-y:none}
   .chip .l{font-size:10px}
   .chip .g{top:3px;right:3px;width:11px;height:11px;line-height:11px;font-size:7px}
   .chip.csi{grid-column:6}
+  .chips[data-wide]{grid-template-columns:var(--wcols)}   /* a 4-digit reading: its column only as wide as it needs (chipsWide) */
   .wx{font-size:12.5px}
 }
 
@@ -1403,8 +1406,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jrow .dot{width:10px;height:10px;border-radius:50%;background:var(--yellow);flex:0 0 10px}
 .jrow.lv-red .dot{background:var(--red)}
 .jrow b{font-size:15.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.jrow .st{margin-left:auto;font-size:13px;color:var(--ink2);white-space:nowrap}
-.jrow.lv-red .st{color:var(--red);font-weight:600}
+.jrow .st{margin-left:auto}   /* the same pill as the job's popover (.jpill, 2026-10-14) */
 .jrow.more{justify-content:center;color:var(--accent);font-size:14px;padding:8px}
 .jrow{position:relative}
 .jrow.popopen::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 2px var(--accent);pointer-events:none}   /* follows the box's rounded corners (2026-10-14) */
@@ -1553,7 +1555,8 @@ html.app .nowsw{bottom:var(--cornerGap,24px)}
 .nowsw.priv{display:flex}
 .nowsw .sg{display:inline-flex;border-radius:999px;padding:4px;gap:2px;background:color-mix(in srgb,var(--card) 34%,transparent);-webkit-backdrop-filter:blur(18px) saturate(190%);backdrop-filter:blur(18px) saturate(190%);box-shadow:0 6px 20px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 1px color-mix(in srgb,var(--card) 55%,transparent),0 0 0 .5px color-mix(in srgb,var(--ink) 12%,transparent)}   /* glassy: mostly see-through, the chosen side solid */
 .nowsw button:not(.on){color:var(--ink);text-shadow:0 0 6px color-mix(in srgb,var(--card) 80%,transparent)}
-.nowsw button{font:inherit;font-size:15px;border:0;background:none;color:var(--ink2);padding:8px 20px;border-radius:999px;cursor:pointer}
+.nowsw button{font:inherit;font-size:15px;border:0;background:none;color:var(--ink2);padding:8px 14px;border-radius:999px;cursor:pointer}   /* 14 px sides (was 20, 2026-10-14): room beside the ⋯ and + on small phones */
+@media (max-width:389px){ .nowsw button{font-size:14px;padding:8px 11px} }   /* iPhone SE / mini width */
 .nowsw button.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 body.v-now.unlocked:is(.lvl-board,.lvl-manager) :is(#up,#histRow,#opts,#list,#legend){display:none !important}
 #now{display:none !important;flex-direction:column;gap:10px}
@@ -1720,6 +1723,11 @@ dialog.pop.wide{max-width:1040px}
 .popbig span{font-size:15px;color:var(--ink2);font-weight:500}
 .popstats{display:flex;gap:4px 16px;flex-wrap:wrap;margin-top:6px;font-size:14px;color:var(--ink2)}
 .popstats b{color:var(--ink);font-weight:600}
+.nfyst{display:flex;align-items:center;gap:10px;margin:6px 4px 0;font-size:16px;font-weight:600}
+.nfyst i{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}.nfyst.on i{background:var(--green)}
+.nfyrules{margin:0 4px;padding-left:18px;font-size:14px;line-height:1.45}.nfyrules li{margin:2px 0}
+.nfydev{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.nfydev:last-child{border-bottom:0}.nfydev span{flex:1;min-width:0}.nfydev small{display:block;color:var(--muted)}.nfydev .btn{min-height:34px;padding:4px 12px}
 .popsec{margin:18px 4px 6px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .popgrp{background:var(--soft);border-radius:14px;padding:8px}
 .poplist{padding:0 12px}
@@ -1784,7 +1792,7 @@ dialog.pop.wide{max-width:1040px}
   </div>
   <div class="skel" id="skel" aria-hidden="true"></div>
   <p class="lvlnote" id="lvlNote" hidden></p>
-  <div class="nowsw priv brd" id="nowSw" role="group" aria-label="View"><span class="sg"><button type="button" id="vHist" class="on" aria-pressed="true">History</button><button type="button" id="vNow" aria-pressed="false">Now</button></span></div>
+  <div class="nowsw priv brd" id="nowSw" role="group" aria-label="View"><span class="sg"><button type="button" id="vHist" class="on" aria-pressed="true">Logbook</button><button type="button" id="vNow" aria-pressed="false">Forecast</button></span></div>
   <div id="now" class="priv brd" aria-live="polite"></div>
   <div class="up priv" id="up" hidden>
     <div class="uprow"><span class="seclbl">Coming up</span><span class="hln" aria-hidden="true"></span>
@@ -1851,6 +1859,7 @@ dialog.pop.wide{max-width:1040px}
   <button type="button" class="mrow priv mgr" id="mnRemoved">Review removed tests</button>
   <button type="button" class="mrow priv mgr" id="mnFeeders">Feeders</button>
   <button type="button" class="mrow priv brd" id="mnPrices">Prices</button>
+  <button type="button" class="mrow priv mgr" id="mnNotify">Notifications</button>
   <button type="button" class="mrow priv mgr" id="mnVols">Volunteers</button>
   <button type="button" class="mrow priv volonly" id="mnChgPw">My login</button>
   <button type="button" class="mrow priv novol" id="mnLock">Sign out</button>
@@ -2014,6 +2023,26 @@ dialog.pop.wide{max-width:1040px}
   <p class="hint" style="margin:6px 0 0">Signs out on this phone or computer only.</p>
   </div>
   <div class="popfoot"><div class="err" id="chgErr" role="alert"></div><button class="btn primary" type="submit" form="chgForm" id="chgGo">Change password</button></div>
+</dialog>
+
+<dialog id="nfyDlg" class="pop" aria-labelledby="nfyH">
+  <div class="pophead"><div><h2 id="nfyH">Notifications</h2><span class="popsub">Alerts on this phone, for the Manager</span></div><button type="button" class="popx" id="nfyX" aria-label="Close">×</button></div>
+  <div class="popbody">
+  <div class="nfyst" id="nfySt"><i></i><span>Checking…</span></div>
+  <p class="hint" id="nfyHint" style="margin:6px 4px 0"></p>
+  <div class="row" style="margin-top:10px;justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" type="button" id="nfyOn" hidden>Turn on for this phone</button>
+    <button class="btn" type="button" id="nfyTest" hidden>Send a test</button><button class="btn" type="button" id="nfyOff" hidden>Turn off</button></div>
+  <div class="err" id="nfyErr" role="alert"></div>
+  <div class="popsec">What you get</div>
+  <ul class="nfyrules">
+    <li><b>Right away:</b> a reading in the red (not OK to swim, or CSI), anything logged by someone else, a new volunteer sign-up.</li>
+    <li><b>Morning summary</b> (7:45 AM weekdays, 8:30 AM weekends): feeders running low, low or out of stock, overdue jobs and tests.</li>
+    <li><b>6 PM:</b> a test due today and none logged.</li>
+    <li>Nothing from 10 PM to 7:30 AM: what came in waits until then.</li>
+  </ul>
+  <div class="popsec">Phones that get them</div>
+  <div id="nfyDevs"><p class="hint" style="margin:0 4px">None yet.</p></div>
+  </div>
 </dialog>
 
 <dialog id="unlockDlg" class="pop" aria-labelledby="siHead">
@@ -2312,6 +2341,20 @@ function numHtml(key, v){
   var t = fmtNum(v);
   return key === 'csi' ? t.replace(/^(-?)0(\.)/, '$1<span class="lz">0</span>$2') : t;
 }
+/** Phones (2026-10-14): a 4-digit reading (CH 1025, salt 3200) doesn't fit a sixth of the row, so its column takes just the
+ *  room its number needs ("auto") and the other five share the rest. Only that card changes; style used by the phone CSS
+ *  (.chips[data-wide]). Position: the tiles fill columns 1-5 of the first row (CSI is fixed in 6), then 1-6 below. */
+function chipsWide(t){
+  var cols = ['1fr', '1fr', '1fr', '1fr', '1fr', '1fr'], wide = false, i = 0;
+  COLS.forEach(function(c){
+    var v = t[c[0]];
+    if (!isNum(v)) return;
+    var col = c[0] === 'csi' ? 5 : (i < 5 ? i : (i - 5) % 6);
+    if (c[0] !== 'csi') i++;
+    if (fmtNum(v).replace(/\D/g, '').length >= 4) { cols[col] = 'auto'; wide = true; }
+  });
+  return wide ? ' data-wide style="--wcols:' + cols.join(' ') + '"' : '';
+}
 function chipHtml(c, t){
   var v = t[c[0]];
   if (!isNum(v)) return '';
@@ -2361,10 +2404,10 @@ function testCard(t){
   return '<div class="card test' + (t.store ? ' store' : '') + (t.hidden ? ' thid' : '') + (t.wait ? ' wait' : '') + '"><div class="head"><span class="lhs"><span class="time">' + esc(t.time) + '</span>' +
     whoHtml(t) + (t.wait ? WAIT_TAG : '') +
     (t.store ? '<span class="store-tag" title="Leslie\'s (pool store) test">Leslie\'s</span>' : '') +
-    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden from members</span>' : '') +
+    (t.hidden ? '<span class="thid-tag" title="Members do not see this test">Hidden</span>' : '') +
     (t.parts ? '<button type="button" class="join-tag emk" data-ek="parts" data-eid="' + esc(t.id) + '" title="Logged as ' + t.parts.length + ' entries, shown as one test">' + t.parts.length + ' entries</button>' : '') + '</span>' +
     '<span class="rhs">' + wxHtml(t.w) + mk + '</span></div>' +
-    '<div class="chips">' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
+    '<div class="chips"' + chipsWide(t) + '>' + COLS.map(function(c){ return chipHtml(c, t); }).join('') + '</div></div>';
 }
 var AFFECT_LABEL = {fc:'FC', cc:'CC', ph:'pH', ta:'TA', ch:'CH', cya:'CYA', salt:'SALT', bor:'BOR'};
 function money(n){ if (n == null || !isFinite(n)) return "–"; return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
@@ -3309,7 +3352,7 @@ function renderJobs(ts){
   var rows = shown.map(function(i){
     var t = ts[i], s = trkState(t), red = t.err || s.lv === 'red', n = late(t);
     var st = t.err ? 'Check setting' : red ? (n >= 1 ? n + (n === 1 ? ' day late' : ' days late') : 'Late') : 'Due now';
-    return '<button type="button" class="jrow lv-' + (red ? 'red' : 'yellow') + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st">' + esc(st) + '</span></button>';
+    return '<button type="button" class="jrow lv-' + (red ? 'red' : 'yellow') + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st jpill lv-' + (red ? 'red' : 'yellow') + '">' + esc(st) + '</span></button>';
   });
   if (due.length > 3) rows.push('<button type="button" class="jrow more" id="jMore">+' + (due.length - 2) + ' more due now</button>');
   $('jobs').innerHTML = rows.join('');
@@ -3625,7 +3668,7 @@ function renderHeader(){
    learned from our own tests; pH creeps up at a rate learned the same way. Water temperature follows the air of the
    last few days plus sun, nudged by our own temperature tests. */
 var NOW_SURE_H = {fc:48, cc:48, ph:48, ta:14*24, ch:21*24, cya:21*24};   // how long an estimate stays good after a test
-var NOW_TILES = [['fc','Free chlorine','ppm','FC'], ['cc','Combined chlorine','ppm','CC'], ['ph','pH','','pH'],
+var NOW_TILES = [['fc','Free chlorine','ppm','FC'], ['ph','pH','','pH'],   // no CC (2026-10-14): it doesn't drift, the last test says it all
   ['ta','Total alkalinity','ppm','TA'], ['ch','Calcium hardness','ppm','CH'], ['cya','Stabilizer (CYA)','ppm','CYA']];
 var NOW_SPAN = {fc:4, cc:4, ph:4, ta:25, ch:25, cya:25, csi:25, tempF:12};        // days on the tile's chart (scroll for more)
 /** Calcium hardness of our well water, which refill water brings in: one number for everyone, set on the CH tile (server saveWellCh). */
@@ -3859,10 +3902,18 @@ function nowTempModel(){
   var L = T.length ? T[T.length - 1] : null, fit = function(ms){ var v = at(best.sr, ms); return v === null ? null : v + best.off; };
   best.anchor = L ? {ms: L.ms, v: L.tempF, d: L.tempF - fit(L.ms)} : null;
   best.fit = fit;
+  // Through every test (2026-10-14, Camelo: "why is the water line not going through any of my past recordings"): each test's
+  // miss (test - fit) is spread in a straight line to the next test's, so the weather still shapes the curve between two
+  // tests but it lands on both. Before the first test: its miss; after the latest: the latest's (the anchor above).
+  var miss = T.map(function(t){ var f = fit(t.ms); return f === null ? null : {ms: t.ms, d: t.tempF - f}; }).filter(Boolean);
   best.at = function(ms){
-    var v = fit(ms); if (v === null || !best.anchor) return v;
-    var w = ms >= best.anchor.ms ? 1 : Math.max(0, 1 - (best.anchor.ms - ms) / (2 * DAYMS));
-    return v + w * best.anchor.d;
+    var v = fit(ms); if (v === null || !miss.length) return v;
+    if (ms <= miss[0].ms) return v + miss[0].d;
+    for (var i = 1; i < miss.length; i++) {
+      var a = miss[i - 1], b = miss[i];
+      if (ms <= b.ms) return v + a.d + (b.d - a.d) * (b.ms > a.ms ? (ms - a.ms) / (b.ms - a.ms) : 1);
+    }
+    return v + miss[miss.length - 1].d;
   };
   best.air4 = (function(){ var s = 0, c = 0, now = Date.now(); for (var t = now - 4 * DAYMS; t <= now; t += HR) { var v = nowWxAt('air', t); if (v !== null) { s += v; c++; } } return c ? s / c : null; })();
   return best;
@@ -3999,6 +4050,13 @@ function nowModel(){
   if (tm) {
     var path2 = [];
     for (var t2 = now - NOW_BACK.tempF * DAYMS; t2 <= now + 48 * HR; t2 += 6 * HR) { var v2 = tm.at(t2); if (v2 !== null) path2.push({ms: t2, v: v2}); }
+    // a point at each test (and now), so the line meets the dots exactly (2026-10-14), not just near a 6-hour step
+    nowTests('tempF').map(function(t){ return t.ms; }).concat([now]).forEach(function(t3){
+      if (t3 < now - NOW_BACK.tempF * DAYMS) return;
+      var v3 = tm.at(t3); if (v3 !== null) path2.push({ms: t3, v: v3});
+    });
+    path2.sort(function(a, b){ return a.ms - b.ms; });
+    path2 = path2.filter(function(p, i){ return !i || p.ms - path2[i - 1].ms > 60000; });
     M.r.tempF = {last: lastT, v: tm.at(now), m: tm, path: path2, tomorrow: tm.at(nowTomorrowAt(16))};
   } else if (lastT) M.r.tempF = {last: lastT, v: lastT.tempF, path: [], noWx: true};
   // CSI from the estimates
@@ -4094,8 +4152,10 @@ function nowCurve(pts){
   }
   return d;
 }
+/** Computers (2026-10-14): taller Now charts, for more detail. */
+function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-width:900px)').matches); }
 function nowChart(o){
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? 120 : 92) + top - 8, ih = H - top - bot;
+  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   var vals = [];
@@ -4341,7 +4401,7 @@ function nowTempTile(M){
   var tg = r.last ? 'Tested ' + Math.round(r.last.tempF) + '°<span data-d> · ' + esc(nowWhen(r.last)) + '</span>' : 'No temperature tests yet';
   var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF};
   var foot = r.noWx ? (nowWxBusy || !nowWx ? 'Loading the weather…' : 'Weather didn’t load, so this is the last test') : isNum(r.tomorrow) ? 'Tomorrow<span data-d> afternoon</span> ≈' + Math.round(r.tomorrow) + '°' : '';
-  var acc = r.m && r.m.n >= 4 && isNum(r.m.rms) ? 'Within about ±' + Math.max(1, Math.round(r.m.rms)) + '° of your tests' : r.m ? 'Rough until there are a few more temperature tests' : '';
+  var acc = r.m && r.m.n >= 4 && isNum(r.m.rms) ? 'Forecast usually within ±' + Math.max(1, Math.round(r.m.rms)) + '°' : r.m ? 'Rough until there are a few more temperature tests' : '';
   var an = r.m && r.m.anchor, wxd = an ? r.v - an.v : 0;
   var how = r.m ? nowHow([isNum(r.m.air4) ? ['Air, last 4 days on average', Math.round(r.m.air4) + '°'] : null,
     an ? ['Last test<span data-d> (' + esc(nowWhen(r.last)) + ')</span>', Math.round(an.v) + '°'] : ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
@@ -5434,6 +5494,91 @@ function setWaiting(n){
   });
   $('mnVols').innerHTML = 'Volunteers' + (n ? '&nbsp;<span style="color:var(--red);font-weight:600">(' + n + ' waiting)</span>' : '');
 }
+/* ------------------------------------------------------------ notifications (Manager, 2026-10-14; server Notify.gs, worker chem/sw.js)
+   The phone subscribes with our public key (pushKey) and hands the subscription to pushSubscribe. Works only on the GitHub
+   site (html.nfysite) and, on an iPhone, only in the home-screen app (iOS 16.4+). */
+var NFY_SITE = /(^|\.)rollingoaksclub\.org$|github\.io$|^localhost$|^127\./.test(location.hostname);
+if (NFY_SITE) document.documentElement.classList.add('nfysite');
+var nfyKey = null, nfyReg = null, nfyBusy = false;
+function nfyCan(){ return NFY_SITE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function nfyIos(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function nfyLabel(){ var u = navigator.userAgent; return /iPad/.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android phone' : 'Computer'; }
+function nfyKeyBytes(k){ var s = atob(k.replace(/-/g, '+').replace(/_/g, '/')), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+function nfySub(){ return nfyReg ? nfyReg.pushManager.getSubscription() : Promise.resolve(null); }
+function nfyShow(on, devs){
+  var st = $('nfySt'); st.classList.toggle('on', !!on);
+  st.querySelector('span').textContent = on ? 'On for this phone' : 'Off for this phone';
+  $('nfyOn').hidden = !!on || !nfyCan(); $('nfyOff').hidden = !on; $('nfyTest').hidden = !on;
+  $('nfyHint').textContent = nfyCan() ? (on ? '' : 'Your phone will ask to allow notifications: tap Allow.') :
+    nfyIos() ? 'On an iPhone this works only in the Pool Log app: open it from its home-screen icon (iOS 16.4 or newer).' : 'This browser can\'t get notifications.';
+  var box = $('nfyDevs');
+  if (!devs) return;
+  box.textContent = '';
+  if (!devs.length){ box.innerHTML = '<p class="hint" style="margin:0 4px">None yet.</p>'; return; }
+  devs.forEach(function(d){
+    var row = document.createElement('div'); row.className = 'nfydev';
+    row.innerHTML = '<span>' + esc(d.label) + (d.mine ? ' <b>(this one)</b>' : '') + '<small>' + esc((d.who ? d.who + ' · ' : '') + 'since ' + d.since +
+      (d.last ? ' · last sent ' + d.last : '') + (d.ok ? '' : ' · not reaching it')) + '</small></span>';
+    if (!d.mine){ var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Remove';
+      b.addEventListener('click', function(){ nfyCall('pushUnsubscribe', function(ep){ return [CODE, ep, d.id]; }); }); row.appendChild(b); }
+    box.appendChild(row);
+  });
+}
+function nfyErr(t, good){
+  var e = $('nfyErr'); e.style.color = good ? 'var(--green)' : ''; e.textContent = t || '';
+  var st = $('nfySt').querySelector('span'); if (t && !good && st.textContent === 'Checking…') st.textContent = 'Could not check';
+}
+/** A Manager call that answers with {on, devices}; args(ep) builds its arguments from this phone's push address. */
+function nfyCall(fn, args, then){
+  nfySub().then(function(sub){
+    var ep = sub ? sub.endpoint : '';
+    serverCall(fn, args(ep), function(res){
+      if (handleDenied(res)) return;
+      if (!res || !res.ok){ nfyErr((res && res.message) || 'Could not reach the server.'); return; }
+      if (res.devices) nfyShow(res.on, res.devices);
+      if (then) then(res, sub);
+    }, function(){ nfyErr('Could not reach the server. Try again.'); });
+  });
+}
+function openNotify(){
+  nfyErr(''); nfyShow(false, null); $('nfySt').querySelector('span').textContent = 'Checking…';
+  openDlg('nfyDlg');
+  if (!nfyCan()){ nfyShow(false, null); nfyCall('pushDevices', function(ep){ return [CODE, ep]; }); return; }
+  if (!nfyKey) serverCall('pushKey', [], function(res){ if (res && res.key) nfyKey = res.key; }, function(){});
+  navigator.serviceWorker.register('sw.js').then(function(reg){ nfyReg = reg; return navigator.serviceWorker.ready; })
+    .then(function(reg){ nfyReg = reg; nfyCall('pushDevices', function(ep){ return [CODE, ep]; }); })
+    .catch(function(){ nfyErr('The notification helper could not start on this phone.'); });
+}
+function nfyTurnOn(){
+  if (nfyBusy) return;
+  if (!nfyKey || !nfyReg){ nfyErr('Still getting ready, try again in a second.'); return; }
+  nfyBusy = true; nfyErr('Turning on…', true);
+  Notification.requestPermission().then(function(p){       // straight from the tap: iPhones ask only then
+    if (p !== 'granted') throw new Error(p === 'denied' ? 'denied' : 'no');
+    return nfyReg.pushManager.getSubscription().then(function(s){
+      return s || nfyReg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: nfyKeyBytes(nfyKey)});
+    });
+  }).then(function(sub){
+    serverCall('pushSubscribe', [CODE, sub.toJSON(), nfyLabel()], function(res){
+      nfyBusy = false;
+      if (handleDenied(res)) return;
+      if (!res || !res.ok){ nfyErr((res && res.message) || 'Could not turn on.'); return; }
+      nfyShow(res.on, res.devices); nfyErr('On. Tap Send a test to try it.', true);
+    }, function(){ nfyBusy = false; nfyErr('Could not reach the server. Try again.'); });
+  }).catch(function(e){
+    nfyBusy = false;
+    nfyErr(e && e.message === 'denied' ? 'Notifications are blocked for Pool Log. Allow them in the iPhone Settings app → Notifications → Pool Log, then try again.' :
+      e && e.message === 'no' ? 'Notifications were not allowed.' : 'Could not turn on on this phone.');
+  });
+}
+function nfyTurnOff(){
+  nfyErr('');
+  nfyCall('pushUnsubscribe', function(ep){ return [CODE, ep, '']; }, function(res, sub){ if (sub) sub.unsubscribe().catch(function(){}); nfyErr('Off for this phone.', true); });
+}
+function nfyTestSend(){
+  nfyErr('Sending…', true);
+  nfyCall('pushTest', function(ep){ return [CODE, ep]; }, function(res){ nfyErr(res.message, true); });
+}
 function openChgPw(){
   loadAliases();
   ['chgCur', 'chgNew', 'chgNew2'].forEach(function(id){ $(id).value = ''; pwShow($(id), false); });
@@ -6216,6 +6361,11 @@ document.addEventListener('DOMContentLoaded', function(){
   $('mnPrices').addEventListener('click', function(){ closeDlg('menuDlg'); openPrices(); });
   $('mnLock').addEventListener('click', function(){ closeDlg('menuDlg'); lockNow(''); });
   $('mnChgPw').addEventListener('click', function(){ closeDlg('menuDlg'); openChgPw(); });
+  $('mnNotify').addEventListener('click', function(){ closeDlg('menuDlg'); openNotify(); });
+  $('nfyX').addEventListener('click', function(){ closeDlg('nfyDlg'); });
+  $('nfyOn').addEventListener('click', nfyTurnOn);
+  $('nfyOff').addEventListener('click', nfyTurnOff);
+  $('nfyTest').addEventListener('click', nfyTestSend);
   $('akaSave').addEventListener('click', saveAliases);
   $('mnVols').addEventListener('click', function(){
     closeDlg('menuDlg');
@@ -6510,7 +6660,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var KIND = {test: ['test', 'var(--accent)', 'Save test'], note: ['note', 'var(--ink2)', 'Save note'], pump: ['pump reading', 'var(--water)', 'Save reading'],
     chem: ['chemical', 'var(--k-fc)', 'Save chemical'],
     vols: ['Volunteers', 'var(--red)', '']};
-  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnFeeders": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>"};
+  var MENU_ICONS = {"mnRefresh": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "mnPrint": "<path d=\"M7 9V3h10v6\"/><rect x=\"3.5\" y=\"9\" width=\"17\" height=\"8\" rx=\"2\"/><path d=\"M7 14h10v7H7z\"/>", "mnPrices": "<path d=\"M3 12V4h8l10 10-8 8z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.4\"/>", "mnFeeders": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M7 13h10M10 17h4\"/>", "mnRemoved": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>", "mnVols": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"/><path d=\"M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4\"/><path d=\"M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.7.8 2.7 2.6 3 5.2\"/>", "mnChgPw": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 10.5V7a4 4 0 0 1 8 0v3.5\"/>", "mnLock": "<path d=\"M10 4H5v16h5\"/><path d=\"M14 8l4 4-4 4M18 12H9\"/>", "mnSignIn": "<path d=\"M14 4h5v16h-5\"/><path d=\"M10 8l4 4-4 4M14 12H4\"/>", "mnNotify": "<path d=\"M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>"};
   ICON.vols = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' + MENU_ICONS.mnVols + '</svg>';
   // key, label, unit, unusual below, unusual above (yellow "Check this number"; the server refuses only impossible ones)
   var GROUPS = [
@@ -6549,7 +6699,7 @@ document.addEventListener('DOMContentLoaded', function(){
   $('eScrim').addEventListener('click', function(){ if (grow.hidden){ setOpen(false); setMenu(false); } });
   // The ⋯ as bubbles: one pill per menu row that is showing for this sign-in, nearest the ⋯ first (MENU_BOTTOM_UP), with
   // the menu's small info lines as a caption on top. A pill does what its row does; Volunteers grows into its panel.
-  var MENU_BOTTOM_UP = ['mnPrint', 'mnSignIn', 'mnRefresh', 'mnPrices', 'mnRemoved', 'mnFeeders', 'mnVols', 'mnChgPw', 'mnLock'];
+  var MENU_BOTTOM_UP = ['mnPrint', 'mnSignIn', 'mnRefresh', 'mnPrices', 'mnRemoved', 'mnFeeders', 'mnNotify', 'mnVols', 'mnChgPw', 'mnLock'];
   function setMenu(o){
     if (o) buildMenuBubbles();
     ui.classList.toggle('menu', o);
