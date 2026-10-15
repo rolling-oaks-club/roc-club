@@ -1365,8 +1365,11 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .head .lhs{display:inline-flex;align-items:baseline;gap:7px;min-width:0;flex:0 1 auto;overflow:hidden}
 .head .rhs{margin-left:auto;flex:0 0 auto}
 .time{font-size:16.5px}
-.who{display:inline-flex;align-items:center;gap:3px;font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.who svg{width:12px;height:12px;flex:0 0 12px}
+.who{display:inline-flex;align-items:baseline;gap:3px;font-size:13px;color:var(--ink2);white-space:nowrap;min-width:0}
+.who svg{width:12px;height:12px;flex:0 0 12px;align-self:center}
+/* the name sits on the same line as the time and tags (2026-10-15): the box lines up by its text, not its bottom edge -
+   only the name itself is clipped (a clipped box is lined up by its bottom, which lifted it on iPhones) */
+.who .wn{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .wx{font-size:12.5px}
 
 .head .emk{margin:-2px -6px -2px 2px;font-size:16px}
@@ -2339,7 +2342,7 @@ function sameName(a, b){ a = String(a || '').trim(); b = String(b || '').trim();
 function whoHtml(x){
   if (!x || x.src !== 'Dashboard' || !x.by) return '';
   var bys = x.bys && x.bys.length ? x.bys : [x.by];
-  return '<span class="who" title="Entered by ' + esc(bys.map(fullName).join(', ')) + '">' + PERSON_SVG + esc(bys.map(firstName).join(', ')) + '</span>';
+  return '<span class="who" title="Entered by ' + esc(bys.map(fullName).join(', ')) + '">' + PERSON_SVG + '<span class="wn">' + esc(bys.map(firstName).join(', ')) + '</span></span>';
 }
 /** CSI is always between -1 and 1: wrap its leading zero so phones can drop it ("-0.29" -> "-.29"). */
 function numHtml(key, v){
