@@ -1593,7 +1593,10 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ncsi .nb{opacity:.3}
 .ncsi .nb.green{background:var(--green)} .ncsi .nb.yellow{background:var(--yellow)} .ncsi .nb.red{background:var(--red)} .ncsi .nb.purple{background:var(--purple)}
 .ncsi .nbarw .ntick{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 1px var(--card)}   /* a little taller than the bar */
-.ntile{background:var(--card);border-radius:18px;padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px}
+.ntile{background:var(--card);border-radius:18px;padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px;position:relative}
+.nchart .nhit{fill:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ntip{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-10px;background:var(--ink);color:var(--card);font-size:12.5px;font-weight:600;
+  padding:5px 9px;border-radius:9px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}   /* a tapped dot's label (2026-10-14) */
 .nhead,.ntop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer}
 .ntop{cursor:default}
 .nhead:focus-visible,.ncsi:focus-visible,.nowsw button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
@@ -3975,6 +3978,60 @@ function nowPast(cs, k, al, be, rate){
   }
   return out;
 }
+/* ---- the past line for the slow tests (TA, CH, CYA; 2026-10-14, Camelo: "for something like cya, the changes are slow,
+   and one test does not represent a sharp movement in time, but a more gradual shift over a few days"). Between two tests
+   up to 3 weeks apart the line follows what was added (acid pulls TA down, borax / baking soda push it up, cal-hypo and
+   refill water raise CH, trichlor raises CYA), each quick addition eased in over NOW_EASE so nothing looks like a sudden
+   jump, feeders on their release curves. The base is a smooth curve through the tests (nowHermite: no corners at the dots,
+   level at a high or low point); the additions' shape rides on it (their straight-line trend between the two tests taken
+   out, so the line still lands on both tests). Solid (not "shaped"): it is the reading's slow course, not a guess at a
+   spike. Same {testA.ms: {b, pts}} as nowPast. */
+var NOW_SLOW_GAP = 21 * DAYMS, NOW_EASE = 24 * HR;
+var NOW_SLOW_FX = {ta: [['alk', 1], ['acid', -1]], ch: [['ch', 1]], cya: [['cya', 1]]};
+/** A smooth curve through points [{ms, v}] (sorted), the same monotone rule as nowCurve but in time: f(ms) -> value. */
+function nowHermite(P){
+  var n = P.length, m = [], t = [];
+  for (var i = 0; i < n - 1; i++) m[i] = (P[i + 1].v - P[i].v) / (P[i + 1].ms - P[i].ms || 1);
+  t[0] = m[0] || 0; t[n - 1] = m[n - 2] || 0;
+  for (i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  for (i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+    var a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b;
+    if (h > 9) { var k = 3 / Math.sqrt(h); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  return function(ms){
+    var j = 0; while (j < n - 2 && ms > P[j + 1].ms) j++;
+    var dx = P[j + 1].ms - P[j].ms || 1, u = Math.max(0, Math.min(1, (ms - P[j].ms) / dx)), u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * P[j].v + (u3 - 2 * u2 + u) * dx * t[j] + (-2 * u3 + 3 * u2) * P[j + 1].v + (u3 - u2) * dx * t[j + 1];
+  };
+}
+function nowEase(x){ x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+function nowPastSlow(cs, k){
+  var T = nowTests(k), now = Date.now(), out = {}, fx = NOW_SLOW_FX[k];
+  if (T.length < 2) return out;
+  var base = nowHermite(T.map(function(t){ return {ms: t.ms, v: t[k]}; }));
+  var mine = cs.filter(function(x){ return fx.some(function(f){ return x.fx[f[0]]; }); });
+  for (var n = 1; n < T.length; n++) {
+    var A = {ms: T[n - 1].ms, v: T[n - 1][k]}, B = {ms: T[n].ms, v: T[n][k]}, g = B.ms - A.ms;
+    if (g >= NOW_SLOW_GAP || g < 10 * 60000 || now - B.ms > 366 * DAYMS) continue;
+    var slow = mine.filter(function(x){ return x.slow && x.ms <= B.ms && x.ms > A.ms - 120 * DAYMS; });
+    var quick = mine.filter(function(x){ return !x.slow && x.ms > A.ms - NOW_EASE && x.ms <= B.ms; });
+    var grid = nowPastGrid(A.ms, B.ms, now, []);
+    var adds = grid.map(function(t){
+      var v = 0;
+      fx.forEach(function(f){
+        v += f[1] * nowSum(slow, f[0], A.ms, t);
+        quick.forEach(function(x){ if (x.fx[f[0]]) v += f[1] * x.fx[f[0]] * (nowEase((t - x.ms) / NOW_EASE) - nowEase((A.ms - x.ms) / NOW_EASE)); });
+      });
+      if (k === 'ch') { var w = nowRefillCh(A.ms, t); if (isNum(w)) v += w; }
+      return v;
+    });
+    var all = adds[adds.length - 1];
+    var vals = grid.map(function(t, i){ return base(t) + adds[i] - all * (t - A.ms) / g; });
+    out[A.ms] = nowPastOut(A, B, grid, vals, [], 0);
+  }
+  return out;
+}
 function nowPastFc(A, B, grid, slow, quick, al, be){
   var h = [], sun = [], add = [], t = A.ms, sum = 0;
   grid.forEach(function(t2){
@@ -4053,7 +4110,8 @@ function nowModel(){
     if (f) { for (var t = L.ms + 12 * HR; t < now; t += 12 * HR) path.push({ms: t, v: Math.max(0, L[p[0]] + at(t))}); }
     var add = f ? f(L.ms, now) : 0, drift = rate * (now - L.ms) / HR, dv = add + drift;
     path.push({ms: now, v: Math.max(0, L[p[0]] + dv)});
-    M.r[p[0]] = {last: L, v: Math.max(0, L[p[0]] + dv), dv: dv, add: add, drift: drift, rate: rate, path: path, flat: !f || Math.abs(dv) < 0.5};
+    M.r[p[0]] = {last: L, v: Math.max(0, L[p[0]] + dv), dv: dv, add: add, drift: drift, rate: rate, path: path, flat: !f || Math.abs(dv) < 0.5,
+      past: NOW_SLOW_FX[p[0]] ? nowPastSlow(cs, p[0]) : null};
     if (p[0] === 'ch') { M.r.ch.water = nowRefill(L.ms, now); M.r.ch.waterCh = nowRefillCh(L.ms, now); M.r.ch.add -= M.r.ch.waterCh; }
   });
   // water temperature
@@ -4163,6 +4221,13 @@ function nowCurve(pts){
   }
   return d;
 }
+var NOW_TIP_NAME = {fc: 'FC', cc: 'CC', ph: 'pH', ta: 'TA', ch: 'CH', cya: 'CYA', tempF: 'Water'};
+/** "TA 65 · Tue, Oct 14, 4:24 PM · Camelo" for a tapped dot. */
+function nowTipText(k, p){
+  var when = '';
+  try { when = new Date(p.ms).toLocaleString('en-US', {weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago'}); } catch(e){}
+  return (NOW_TIP_NAME[k] || k) + ' ' + nowFmt(k, p.v) + (k === 'tempF' ? '°' : '') + ' · ' + when + (p.by ? ' · ' + firstName(p.by) : '');
+}
 /** Computers (2026-10-14): taller Now charts, for more detail. */
 function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-width:900px)').matches); }
 function nowChart(o){
@@ -4255,6 +4320,8 @@ function nowChart(o){
     s += '<path d="' + nowCurve(f2.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-dasharray="2 4" opacity=".55"/>';
   }
   pts.forEach(function(p, i){ s += '<circle cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === pts.length - 1 ? 3.6 : 2.6) + '" fill="' + col + '"/>'; });
+  // tap a dot = its reading, day and time, and who (2026-10-14): a bigger see-through circle on top of each one
+  pts.forEach(function(p){ s += '<circle class="nhit" cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="13" data-tip="' + esc(nowTipText(o.k, p)) + '"/>'; });
   if (isNum(o.nowV)) s += '<circle cx="' + X(now).toFixed(1) + '" cy="' + Y(o.nowV).toFixed(1) + '" r="4.5" class="nnowdot" stroke="' + col + '"/>';
   // additions
   var axs = (o.adds || []).filter(function(a){ return a.ms >= x0 && a.ms <= now; }).map(function(a){ return {x: X(a.ms), label: a.label}; });
@@ -4317,7 +4384,7 @@ function nowTile(M, def){
   if (!r) return '<div class="ntile" style="--k:var(--k-' + k + ')"><div class="ntop"><div class="nnm"><b>' + def[1] + '</b><span class="ntg">No tests yet</span></div></div></div>';
   var age = (M.now - r.last.ms) / HR, unsure = age > NOW_SURE_H[k], est = !r.flat && k !== 'cc';
   var st = unsure ? {cls: 'u', txt: 'Test to be sure'} : nowStatus(rname, r.v), open = !!nowOpen[k], band = nowGreen(rname);
-  var pts = nowTests(k).map(function(t){ return {ms: t.ms, v: t[k]}; });
+  var pts = nowTests(k).map(function(t){ return {ms: t.ms, v: t[k], by: t.by}; });
   var f = k === 'ta' ? 'ta' : k === 'ph' ? 'ph' : k;
   var chartO = {k: k, name: def[1], span: NOW_SPAN[k], band: band, pts: pts, est: est ? (r.run ? r.run.path : r.path) : null, nowV: est ? r.v : null, unsure: unsure,
     adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined, past: r.past};
@@ -4408,7 +4475,7 @@ var NOW_CHEV = '<svg class="nchev" viewBox="0 0 12 12" aria-hidden="true"><path 
 function nowTempTile(M){
   var r = M.r.tempF, k = 'tempF', open = !!nowOpen.tempF;
   if (!r) return '<div class="ntile" style="--k:var(--k-tempF)"><div class="ntop"><span class="nnm"><b>Water temperature</b><span class="ntg">Weather not loaded yet</span></span></div></div>';
-  var pts = nowTests('tempF').map(function(t){ return {ms: t.ms, v: t.tempF}; });
+  var pts = nowTests('tempF').map(function(t){ return {ms: t.ms, v: t.tempF, by: t.by}; });
   var tg = r.last ? 'Tested ' + Math.round(r.last.tempF) + '°<span data-d> · ' + esc(nowWhen(r.last)) + '</span>' : 'No temperature tests yet';
   var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF};
   var foot = r.noWx ? (nowWxBusy || !nowWx ? 'Loading the weather…' : 'Weather didn’t load, so this is the last test') : isNum(r.tomorrow) ? 'Tomorrow<span data-d> afternoon</span> ≈' + Math.round(r.tomorrow) + '°' : '';
@@ -4549,6 +4616,17 @@ function setNowView(on){
   $('vHist').addEventListener('click', function(){ setNowView(false); });
   $('vNow').addEventListener('click', function(){ setNowView(true); });
   $('now').addEventListener('click', function(e){
+    // a tapped dot: its label above it, inside the tile (kept on screen); any other tap closes it
+    var old = document.querySelector('.ntip'), hit = e.target.closest('.nhit');
+    if (old) old.remove();
+    if (hit) {
+      var tile = hit.closest('.ntile'), tr = tile.getBoundingClientRect(), hr = hit.getBoundingClientRect(), tip = document.createElement('div');
+      tip.className = 'ntip'; tip.textContent = hit.getAttribute('data-tip'); tile.appendChild(tip);
+      var half = tip.offsetWidth / 2, x = hr.left + hr.width / 2 - tr.left;
+      tip.style.left = Math.max(half + 6, Math.min(tr.width - half - 6, x)) + 'px'; tip.style.top = (hr.top + hr.height / 2 - tr.top - 6) + 'px';
+      return;
+    }
+    if (old && !e.target.closest('button, [data-ntd], [data-ntgt], .nhead')) return;   // that tap just closed the label
     var td = e.target.closest('[data-ntd]');
     if (td) { nowFcTarget = Math.max(1, Math.min(10, nowFcTarget + Number(td.getAttribute('data-ntd')))); try { localStorage.setItem('nowFcTarget', nowFcTarget); } catch(x){} renderNow(); return; }
     if (e.target.closest('[data-ntgt]')) { nowEditT = !nowEditT; renderNow(); return; }
