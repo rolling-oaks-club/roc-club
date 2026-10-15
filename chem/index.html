@@ -1411,7 +1411,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jrow.more{justify-content:center;color:var(--accent);font-size:14px;padding:8px}
 .jrow{position:relative}
 .jrow.popopen::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 2px var(--accent);pointer-events:none}   /* follows the box's rounded corners (2026-10-14) */
-.jline{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink2);margin:9px 4px 0;line-height:1.35}
+.jline{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink2);margin:9px 12px 0;line-height:1.35}   /* 12 px sides = the job rows' own (2026-10-14): lines up with the dots and the pills' right edge */
 .jline:first-child{margin-top:2px}
 .jline .ok{color:var(--green);font-weight:700}
 .jline b{color:var(--ink);font-weight:600}
@@ -1422,6 +1422,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 /* tests above the jobs (2026-10-14) */
 .up .tdue:not([hidden])+.jobs:not([hidden]){margin-top:10px}
 .up .tdue:not([hidden])+.jobs[hidden]+#jlines .jline:first-child{margin-top:10px}
+.jobs:not([hidden])+#jlines .jline:first-child{margin-top:8px}   /* room under the job rows (2026-10-14) */
 .up .tdue::-webkit-scrollbar{display:none}
 .tdc{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;background:var(--card);border:0;border-radius:10px;padding:6px 5px 5px;color:var(--muted);font-size:10.5px;overflow:visible}
 .tdc b{display:block;margin:0;font-size:13.5px}
