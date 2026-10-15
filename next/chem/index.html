@@ -1405,12 +1405,13 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jrow:last-child{border-bottom:0}
 .jrow .dot{width:10px;height:10px;border-radius:50%;background:var(--yellow);flex:0 0 10px}
 .jrow.lv-red .dot{background:var(--red)}
+.jrow.lv-soon .dot{background:var(--muted)}   /* a feeder that runs out tomorrow: listed, not yet yellow (2026-10-14) */
 .jrow b{font-size:15.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jrow .st{margin-left:auto}   /* the same pill as the job's popover (.jpill, 2026-10-14) */
 .jrow.more{justify-content:center;color:var(--accent);font-size:14px;padding:8px}
 .jrow{position:relative}
 .jrow.popopen::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 2px var(--accent);pointer-events:none}   /* follows the box's rounded corners (2026-10-14) */
-.jline{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink2);margin:9px 4px 0;line-height:1.35}
+.jline{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink2);margin:9px 12px 0;line-height:1.35}   /* 12 px sides = the job rows' own (2026-10-14): lines up with the dots and the pills' right edge */
 .jline:first-child{margin-top:2px}
 .jline .ok{color:var(--green);font-weight:700}
 .jline b{color:var(--ink);font-weight:600}
@@ -1421,6 +1422,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 /* tests above the jobs (2026-10-14) */
 .up .tdue:not([hidden])+.jobs:not([hidden]){margin-top:10px}
 .up .tdue:not([hidden])+.jobs[hidden]+#jlines .jline:first-child{margin-top:10px}
+.jobs:not([hidden])+#jlines .jline:first-child{margin-top:12px}   /* room under the job rows (2026-10-14) */
 .up .tdue::-webkit-scrollbar{display:none}
 .tdc{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;background:var(--card);border:0;border-radius:10px;padding:6px 5px 5px;color:var(--muted);font-size:10.5px;overflow:visible}
 .tdc b{display:block;margin:0;font-size:13.5px}
@@ -2595,7 +2597,7 @@ function popNode(){
         var ji = +popCurChip.getAttribute('data-ti');
         if (jb.hasAttribute('data-jlog')) jobLog(ji);
         else if (jb.hasAttribute('data-jnot')) { jobNotYet = jobNotYet === ji ? -1 : ji; jobMsg = ''; openPopFor(popCurChip, true); jobSlide(); }
-        else if (jb.hasAttribute('data-jsave')) { var fr = document.getElementById('jFull'); if (fr) jobPutOff(ji, jobAcidUntil(DATA.trackers[ji], +fr.value / 100), fr.value + '%'); }
+        else if (jb.hasAttribute('data-jsave')) { var fr = document.getElementById('jFull'); if (fr) jobPutOff(ji, '', fr.value + '%', true); }
         else if (jb.hasAttribute('data-jundo')) jobPutOff(ji, '');
         else jobPutOff(ji, jb.getAttribute('data-juntil'), jb.getAttribute('data-jfull'));
         return;
@@ -2938,6 +2940,14 @@ function trkState(t){
   if (!ev) return {lv: 'none', d: null};
   var Fo = t.type === 'slow' ? (feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null) : null;
   if (Fo && Fo.offNow) return {lv: 'none', d: daysBetween(ev.day, todayCentral()), off: Fo.offNow};   // feeder off: its job waits (2026-10-10)
+  // One level per feeder (2026-10-14; server feedLevels_): the fill job is due the day the feeder should run out - in the
+  // due list (plain, "Tomorrow") the day before, yellow on the day, red after. "Not yet" put-offs don't apply to feeders.
+  if (Fo && Fo.emptyAt && Fo.lastFill && dayOfMs(Fo.lastFill) >= ev.day) {
+    var today0 = todayCentral(), due0 = dayOfMs(Fo.emptyAt), k0 = daysBetween(today0, due0);
+    var sp0 = Math.max(1, daysBetween(ev.day, due0));
+    return {lv: k0 < 0 ? 'red' : k0 === 0 ? 'yellow' : k0 === 1 ? 'soon' : 'green', d: daysBetween(ev.day, today0), dd: daysBetween(ev.day, today0),
+      span: sp0, anchor: ev.day, due: due0, feed: true};
+  }
   // Put off ("Not yet", t.post from the Job checks tab): the schedule runs as if it was last done (due day - Warn), so
   // yellow / red / "N days late" all count from the new due day. d = days since it was really done; dd = days into the schedule.
   var d = daysBetween(ev.day, todayCentral()), span = t.warn != null ? t.warn : t.over, anchor = ev.day;
@@ -2949,6 +2959,8 @@ function trkState(t){
 }
 /** Feeder jobs (2026-10-09): the day the newest fill runs out by the feeder settings (cal-hypo DATA.feeder, acid
  *  DATA.acidFeeder), when that fill is the job's last one; else null (the fixed Warn days count). "Not yet…" still wins. */
+/** The span the job's schedule counts against: the feeder's own (fill to empty) or the Trackers tab's Warn / Overdue days. */
+function trkSpan(t, s){ return s && s.span != null ? s.span : t.warn != null ? t.warn : t.over; }
 function trkFeedDue(t, ev){
   var F = feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null;
   if (!F || !F.emptyAt || !F.lastFill || !ev || dayOfMs(F.lastFill) < ev.day) return null;
@@ -2966,11 +2978,11 @@ var trkShowMore = false;   // "More" cards open (Show = More on the Trackers tab
 var trkEdit = -1;          // index of the tracker whose timing form is open in the popover
 var trkMsg = '';           // error under that form
 // Sort order: late, due now, on track, no warnings set, no record. Within a color, the earliest due date first (2026-10-02).
-var TRK_RANK = {red: 0, yellow: 1, green: 2, none: 3};
+var TRK_RANK = {red: 0, yellow: 1, soon: 2, green: 2, none: 3};
 function trkSortKey(t){
   var s = trkState(t);
   if (s.d === null) return [4, 0];
-  var span = t.warn != null ? t.warn : t.over;   // the due day = last + Warn (or Overdue when no Warn)
+  var span = trkSpan(t, s);   // the due day = last + Warn (or Overdue when no Warn; a feeder: the day it runs out)
   return [TRK_RANK[s.lv], span != null ? span - s.dd : 0];
 }
 /** "Acid feeder filled" / "Orenda PR-10000 dosed" / "Superchlorinated" - the card's (and report tile's) top line. */
@@ -2986,7 +2998,7 @@ function trkDoneWord(t){ return t.type === 'slow' ? 'Filled' : t.type === 'produ
 /** {word, day, ago} for a card with Warn / Overdue days and a record; null otherwise. Days late count from the due day. */
 function trkDue(t, s, ev){
   if (!ev || s.lv === 'none' || s.d === null) return null;
-  var span = t.warn != null ? t.warn : t.over, left = span - s.dd, word;
+  var span = trkSpan(t, s), left = span - s.dd, word;
   if (s.lv === 'red') word = -left > 0 ? -left + (left === -1 ? ' day late' : ' days late') : 'Late';
   else if (s.lv === 'yellow') word = 'Due now';
   else word = left === 1 ? 'Due tomorrow' : 'Due in ' + left + ' days';
@@ -3098,7 +3110,7 @@ function jobDose(t){
 function jobFullWord(f){ if (/%$/.test(f)) return f + ' full'; var x = JOB_FULL.filter(function(j){ return j[0] === f; })[0]; return x ? x[1] + ' full' : ''; }
 /** The job's next step for the pill: {txt: "in 3 days" / "Due now" / "2 days late" / "Tomorrow", lv, day: "Sat, Oct 10"}. */
 function jobNext(t){
-  var s = trkState(t), span = t.warn != null ? t.warn : t.over, ev = t.events && t.events[0], today = todayCentral();
+  var s = trkState(t), span = trkSpan(t, s), ev = t.events && t.events[0], today = todayCentral();
   if (t.err) return {txt: 'Check setting', lv: 'red', day: ''};
   if (!ev) return {txt: 'No record', lv: 'none', day: ''};
   if (s.off) return {txt: 'Feeder off', lv: 'none', day: 'since ' + fmtDay(dayOfMs(s.off), false)};
@@ -3106,14 +3118,15 @@ function jobNext(t){
   var k = daysBetween(today, s.due), late = s.dd - span, day = k <= 6 && k >= -6 ? fmtDayLong(s.due).replace(/, \d{4}$/, '') : fmtDay(s.due, false);
   if (s.lv === 'red') return {txt: late >= 1 ? late + (late === 1 ? ' day late' : ' days late') : 'Late', lv: 'red', day: 'was due ' + day};
   if (s.lv === 'yellow') return {txt: 'Due now', lv: 'yellow', day: 'due ' + day};
+  if (s.lv === 'soon') return {txt: 'Tomorrow', lv: 'none', day: 'due ' + day};
   return {txt: k === 1 ? 'Tomorrow' : 'in ' + k + ' days', lv: 'green', day: 'due ' + day};
 }
 /** A bar that fills from the last time to the due day (green -> yellow when due -> red when late). */
 function jobBar(t){
-  var s = trkState(t), span = t.warn != null ? t.warn : t.over;
+  var s = trkState(t), span = trkSpan(t, s);
   if (span == null || s.dd == null || t.err) return '';
   var f = Math.max(0.04, Math.min(1, s.dd / span));
-  return '<span class="jbar lv-' + s.lv + '"><i style="width:' + Math.round(f * 100) + '%"></i></span>';
+  return '<span class="jbar lv-' + (s.lv === 'soon' ? 'green' : s.lv) + '"><i style="width:' + Math.round(f * 100) + '%"></i></span>';
 }
 function jobPostShort(t){ return 'put off' + (t.post.full ? ', ' + jobFullWord(t.post.full) : ''); }
 /** Amount of an event for the history tags: "2.5 gal" (the product name left off). */
@@ -3154,15 +3167,15 @@ function jobFeedState(t){ return feedJob(t) ? feedState() : acidJob(t) ? feedSta
 function feedState(F){
   F = F || DATA.feeder; if (F && F.offNow) return {off: true, since: F.offNow, wait: F.waitShare};
   if (!F || !F.emptyAt) return null;
-  var now = Date.now(), day = dayOfMs(F.emptyAt);
-  return F.emptyAt <= now ? {empty: true, day: day} : {empty: false, left: (F.emptyAt - now) / DAYMS, day: day};
+  var now = Date.now(), day = dayOfMs(F.emptyAt), lvl = isNum(F.level) ? F.level : null;   // level: the server's one level (2026-10-14)
+  return F.emptyAt <= now ? {empty: true, day: day, level: 0} : {empty: false, left: (F.emptyAt - now) / DAYMS, day: day, level: lvl};
 }
 function dayOfMs(ms){ var d = new Date(ms - 5 * 3600000); return d.toISOString().slice(0, 10); }   // Central (CDT; an hour off in winter is fine here)
 function feedLeftHtml(st){
   if (!st) return '';
   if (st.off) return '<b>⏸ Feeder off since ' + esc(runWhen(st.since)) + '</b><span class="m">' + (isNum(st.wait) && st.wait > 0 ? 'About ' + Math.round(st.wait * 100) + '% of the last fill is waiting in it. ' : '') + 'Not due until it’s back on.</span>';
   return st.empty ? '<b class="e">Probably empty since ' + esc(trkDay(st.day)) + '</b>' :
-    '<b>About ' + (st.left < 1 ? 'a day' : Math.round(st.left) + (Math.round(st.left) === 1 ? ' day' : ' days')) + ' left <span>(runs out ' + esc(jobShort(st.day)) + ')</span></b>';
+    '<b>' + (isNum(st.level) ? 'About ' + Math.round(st.level * 100) + '% full · ' : 'About ') + (st.left < 1 ? 'a day' : Math.round(st.left) + (Math.round(st.left) === 1 ? ' day' : ' days')) + ' left <span>(runs out ' + esc(jobShort(st.day)) + ')</span></b>';
 }
 /** Acid feeder job popover: days left, the pump setting and what it feeds a day. */
 function acidLineHtml(){
@@ -3185,20 +3198,23 @@ function jobPostText(t){
   var d = daysBetween(t.post.day, todayCentral()), w = t.post.full ? 'Checked ' : 'Put off ';
   return w + agoText(d).toLowerCase() + (t.post.full ? ', ' + jobFullWord(t.post.full) : '');
 }
-/** Acid feeder: due again when the rest runs out at the rate it emptied since the fill (at least tomorrow, at most 60 days). */
-function jobAcidUntil(t, frac){
-  var ev = t.events && t.events[0];
-  if (!ev) return null;
-  var used = Math.max(1, daysBetween(ev.day, todayCentral())), more = Math.round(used * frac / (1 - frac));
-  return addDays(todayCentral(), Math.max(1, Math.min(60, more)));
+/** The feeder behind a fill job (DATA.feeder / DATA.acidFeeder), or null. */
+function jobFeeder(t){ return feedJob(t) ? DATA.feeder : acidJob(t) ? DATA.acidFeeder : null; }
+/** Days a share of the feeder lasts at its rate now (the settings x the learned speed); null when it isn't emptying. */
+function feedDaysFor(F, share){
+  var cap = F === DATA.acidFeeder ? F.set && F.set.acid : F.fullLb, rate = (F === DATA.acidFeeder ? F.acidDay : F.lbDay) * (F.spd || 1);
+  return cap > 0 && rate > 0 ? share * cap / rate : null;
 }
-/** Slider moved: fill the little tank, say the percent and the new due day. */
+/** Slider moved: fill the little tank, say the percent and when it would run out. */
 function jobSlide(){
-  var r = document.getElementById('jFull'), t = DATA.trackers[jobNotYet]; if (!r || !t) return;
-  var v = +r.value, u = jobAcidUntil(t, v / 100), k = daysBetween(todayCentral(), u);
+  var r = document.getElementById('jFull'), t = DATA.trackers[jobNotYet], F = t && jobFeeder(t); if (!r || !t || !F) return;
+  var v = +r.value, dl = feedDaysFor(F, v / 100), txt;
   document.getElementById('jTank').style.height = v + '%';
+  if (v <= 0) txt = 'Empty: fill it today';
+  else if (dl === null) txt = 'Not emptying at this setting';
+  else { var u = dayOfMs(Date.now() + dl * DAYMS), k = daysBetween(todayCentral(), u); txt = 'Runs out <b>' + esc(fmtDayLong(u).replace(/, \d{4}$/, '')) + '</b> · ' + (k <= 0 ? 'today' : k === 1 ? 'tomorrow' : 'in ' + k + ' days'); }
   // two fixed lines that never wrap, so nothing moves while sliding
-  document.getElementById('jRes').innerHTML = '<b>' + v + '% full</b><span>Due again <b>' + esc(fmtDayLong(u).replace(/, \d{4}$/, '')) + '</b> · ' + (k === 1 ? 'tomorrow' : 'in ' + k + ' days') + '</span>';
+  document.getElementById('jRes').innerHTML = '<b>' + v + '% full</b><span>' + txt + '</span>';
 }
 function jobPutOffUntil(t, n){
   var s = trkState(t), today = todayCentral(), base = s.due && s.due > today ? s.due : today;
@@ -3212,12 +3228,15 @@ function jobActHtml(t, i){
   if (!jobCanLog(t)) return '';
   var inDose = !!jobDose(t);
   var h = '<div class="jact">' + (inDose ? '' : '<button type="button" class="pri" data-jlog="' + i + '">Log it</button>') +
-    (t.warn != null || t.over != null ? '<button type="button" data-jnot="' + i + '" aria-expanded="' + (jobNotYet === i) + '">Not yet…</button>' : '') + '</div>';
+    (jobFeeder(t) ? '<button type="button" data-jnot="' + i + '" aria-expanded="' + (jobNotYet === i) + '">Check level…</button>'
+      : t.warn != null || t.over != null ? '<button type="button" data-jnot="' + i + '" aria-expanded="' + (jobNotYet === i) + '">Not yet…</button>' : '') + '</div>';
   if (jobNotYet === i) {
-    if (jobIsAcid(t) && t.events && t.events.length) {
-      // slider (2026-10-07): how full, 5-95%; the due day updates as it moves (jobSlide)
-      h += '<div class="jq">How full is the feeder?</div><div class="jslide"><span class="jtank"><i id="jTank" style="height:50%"></i></span>' +
-        '<div class="jsr"><input type="range" id="jFull" min="5" max="95" step="5" value="50" aria-label="How full, percent">' +
+    if (jobFeeder(t) && t.events && t.events.length) {
+      // Check level (2026-10-14; was "Not yet" + how full, acid only): how full the feeder is now, 0-100%; it sets the
+      // feeder's level (server feedLevels_), which moves the run-out day and teaches the rate a little. jobSlide shows the day.
+      var lv0 = Math.round(Math.max(0, Math.min(1, isNum(jobFeeder(t).level) ? jobFeeder(t).level : 0.5)) * 20) * 5;
+      h += '<div class="jq">How full is the feeder now?</div><div class="jslide"><span class="jtank"><i id="jTank" style="height:' + lv0 + '%"></i></span>' +
+        '<div class="jsr"><input type="range" id="jFull" min="0" max="100" step="5" value="' + lv0 + '" aria-label="How full, percent">' +
         '<div class="jres" id="jRes"></div></div></div>' +
         '<button type="button" class="jsave" data-jsave="' + i + '">Save</button>';
     } else {
@@ -3227,17 +3246,18 @@ function jobActHtml(t, i){
       }).join('') + '</div>';
     }
   }
-  if (t.post) h += '<div class="trkedit"><button type="button" class="trkebtn" data-jundo="' + i + '">Undo putting it off</button></div>';
+  if (t.post && !jobFeeder(t)) h += '<div class="trkedit"><button type="button" class="trkebtn" data-jundo="' + i + '">Undo putting it off</button></div>';
   if (jobMsg) h += '<div class="trkerr">' + esc(jobMsg) + '</div>';
   return h;
 }
 /** Save "Not yet" (until = 'yyyy-MM-dd') or undo it (until = ''). */
-function jobPutOff(i, until, full){
+/** level = a feeder's Check level (full = "30%", no put-off day). */
+function jobPutOff(i, until, full, level){
   var t = DATA.trackers[i];
   if (!t || jobBusy) return;
   jobBusy = true; jobMsg = '';
   popNode().querySelectorAll('.jopts, .jslide, .jsave, [data-jundo]').forEach(function(b){ b.style.opacity = '.5'; });
-  serverCall('saveJobCheck', [CODE, {row: t.row, name: t.name, until: until, full: full || ''}], function(res){
+  serverCall('saveJobCheck', [CODE, {row: t.row, name: t.name, until: until, full: full || '', level: !!level}], function(res){
     jobBusy = false;
     if (handleDenied(res)) return;
     if (!res || !res.ok){ jobMsg = (res && res.message) || 'Could not save.'; trkReopen(i); return; }
@@ -3345,17 +3365,18 @@ var upFullOpen = false;   // "Full stock" list under Details; closed again on ev
  *  "Next: … in N days". Returns true when there is anything to show. Tap a row = its popover (data-ti). */
 function renderJobs(ts){
   var ord = trkOrder(ts), all = ord.main.concat(ord.extra), today = todayCentral();
-  function late(t){ var s = trkState(t), span = t.warn != null ? t.warn : t.over; return span != null && s.d != null ? s.dd - span : 0; }
-  var due = all.filter(function(i){ var t = ts[i], lv = trkState(t).lv; return t.err || lv === 'red' || lv === 'yellow'; });
+  function late(t){ var s = trkState(t), span = trkSpan(t, s); return span != null && s.d != null ? s.dd - span : 0; }
+  var due = all.filter(function(i){ var t = ts[i], lv = trkState(t).lv; return t.err || lv === 'red' || lv === 'yellow' || lv === 'soon'; });
   due.sort(function(a, b){
-    var ra = ts[a].err || trkState(ts[a]).lv === 'red' ? 0 : 1, rb = ts[b].err || trkState(ts[b]).lv === 'red' ? 0 : 1;
+    var rk = function(t){ var lv = trkState(t).lv; return t.err || lv === 'red' ? 0 : lv === 'soon' ? 2 : 1; }, ra = rk(ts[a]), rb = rk(ts[b]);
     return ra - rb || late(ts[b]) - late(ts[a]) || a - b;
   });
   var shown = due.length > 3 ? due.slice(0, 2) : due;
   var rows = shown.map(function(i){
-    var t = ts[i], s = trkState(t), red = t.err || s.lv === 'red', n = late(t);
-    var st = t.err ? 'Check setting' : red ? (n >= 1 ? n + (n === 1 ? ' day late' : ' days late') : 'Late') : 'Due now';
-    return '<button type="button" class="jrow lv-' + (red ? 'red' : 'yellow') + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st jpill lv-' + (red ? 'red' : 'yellow') + '">' + esc(st) + '</span></button>';
+    var t = ts[i], s = trkState(t), red = t.err || s.lv === 'red', soon = !red && s.lv === 'soon', n = late(t);
+    var st = t.err ? 'Check setting' : red ? (n >= 1 ? n + (n === 1 ? ' day late' : ' days late') : 'Late') : soon ? 'Tomorrow' : 'Due now';
+    var lc = red ? 'red' : soon ? 'soon' : 'yellow';         // soon (a feeder runs out tomorrow): listed, but plain - not yellow until the day
+    return '<button type="button" class="jrow lv-' + lc + '" data-ti="' + i + '"><span class="dot" aria-hidden="true"></span><b>' + esc(trkJob(t)) + '</b><span class="st jpill lv-' + (soon ? 'none' : lc) + '">' + esc(st) + '</span></button>';
   });
   if (due.length > 3) rows.push('<button type="button" class="jrow more" id="jMore">+' + (due.length - 2) + ' more due now</button>');
   $('jobs').innerHTML = rows.join('');
@@ -3363,7 +3384,7 @@ function renderJobs(ts){
   // Next: the soonest job that is not due yet (main ones only)
   var best = null, names = [];
   ord.main.forEach(function(i){
-    var t = ts[i], s = trkState(t), span = t.warn != null ? t.warn : t.over;
+    var t = ts[i], s = trkState(t), span = trkSpan(t, s);
     if (t.err || s.lv !== 'green' || s.d == null || span == null) return;
     var left = span - s.dd;
     if (best === null || left < best){ best = left; names = [trkJob(t)]; } else if (left === best) names.push(trkJob(t));
@@ -5275,8 +5296,8 @@ function feedTankHtml(f, lb){
   var filled = '<br><small>Filled ' + esc(trkDay(dayOfMs(D.lastFill))) + '</small></span></div>';
   if (D.offNow && isNum(D.waitShare)) return '<div class="fdtank">' + feedGauge('cal', D.waitShare, f.tabs) + '<span><b>Off: about ' + Math.round(D.waitShare * 100) + '% left</b>, waiting' + filled;
   if (!D.emptyAt || !(D.fullLb > 0)) return '';
-  var now = Date.now(), left = D.emptyAt > now && D.lbDay > 0 ? (D.emptyAt - now) / DAYMS * D.lbDay : 0, share = Math.max(0, Math.min(1, left / D.fullLb));
-  var dl = left > 0 && lb > 0 ? left / lb : null, txt;
+  var now = Date.now(), share = isNum(D.level) ? D.level : Math.max(0, Math.min(1, (D.emptyAt > now && D.lbDay > 0 ? (D.emptyAt - now) / DAYMS * D.lbDay : 0) / D.fullLb));
+  var left = share * D.fullLb, dl = left > 0 && lb > 0 ? left / (lb * (D.spd || 1)) : null, txt;
   if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(D.emptyAt)));
   else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>';
   else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
@@ -5412,8 +5433,8 @@ function acidCalc(){
   if (A.offNow && A.lastFill && isNum(A.waitShare)) {
     h += '<div class="fdtank">' + feedGauge('acid', A.waitShare) + '<span><b>Off: about ' + Math.round(A.waitShare * 100) + '% left</b>, waiting<br><small>Filled ' + esc(trkDay(dayOfMs(A.lastFill))) + '</small></span></div>';
   } else if (A.emptyAt && A.lastFill) {
-    var now = Date.now(), left = A.emptyAt > now && A.acidDay > 0 ? (A.emptyAt - now) / DAYMS * A.acidDay : 0, share = Math.max(0, Math.min(1, left / A.set.acid));
-    var dl = left > 0 && acidDay > 0 ? left / acidDay : null, txt;
+    var now = Date.now(), share = isNum(A.level) ? A.level : Math.max(0, Math.min(1, (A.emptyAt > now && A.acidDay > 0 ? (A.emptyAt - now) / DAYMS * A.acidDay : 0) / A.set.acid));
+    var left = share * A.set.acid, dl = left > 0 && acidDay > 0 ? left / (acidDay * (A.spd || 1)) : null, txt;
     if (left <= 0) txt = '<b>Probably empty</b> since ' + esc(trkDay(dayOfMs(A.emptyAt)));
     else if (dl === null) txt = '<b>About ' + Math.round(share * 100) + '% left</b>, not emptying at 0%';
     else txt = '<b>About ' + (dl < 1.5 ? 'a day' : Math.round(dl) + ' days') + ' left</b> · runs out ' + esc(jobShort(dayOfMs(now + dl * DAYMS)));
