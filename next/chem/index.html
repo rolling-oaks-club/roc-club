@@ -3892,7 +3892,12 @@ function nowTempModel(){
       var sr = series(tau, kap), res = T.map(function(t){ return t.tempF - at(sr, t.ms); });
       var off = res.length ? res.reduce(function(s, x){ return s + x; }, 0) / res.length : 0;
       var err = res.reduce(function(s, x){ return s + (x - off) * (x - off); }, 0);
-      if (!best || err < best.err) best = {tau: tau, kap: kap, off: off, err: err, sr: sr};
+      // tuned for how it is used (2026-10-14): the forecast starts from a test, so pick the settings that best forecast each
+      // test from the one before (up to 4 days apart) when there are 3+ such pairs; else the plain fit
+      var step = 0, ns = 0;
+      for (var j = 1; j < T.length; j++) if (T[j].ms - T[j - 1].ms <= 4 * DAYMS) { var e1 = res[j] - res[j - 1]; step += e1 * e1; ns++; }
+      var score = ns >= 3 ? step : err;
+      if (!best || score < best.score) best = {tau: tau, kap: kap, off: off, err: err, sr: sr, score: score};
     });
   });
   best.n = T.length; best.rms = T.length ? Math.sqrt(best.err / T.length) : null;
@@ -3906,6 +3911,12 @@ function nowTempModel(){
   // miss (test - fit) is spread in a straight line to the next test's, so the weather still shapes the curve between two
   // tests but it lands on both. Before the first test: its miss; after the latest: the latest's (the anchor above).
   var miss = T.map(function(t){ var f = fit(t.ms); return f === null ? null : {ms: t.ms, d: t.tempF - f}; }).filter(Boolean);
+  // How good the forecast really is (2026-10-14): each test forecast from the one before (that test + the weather's change
+  // since), for tests up to 4 days apart; ahead = the typical miss (rms). The plain fit's rms (best.rms) is the weather alone.
+  var errs = [];
+  for (var j = 1; j < miss.length; j++) if (miss[j].ms - miss[j - 1].ms <= 4 * DAYMS) errs.push(miss[j].d - miss[j - 1].d);
+  best.ahead = errs.length >= 3 ? Math.sqrt(errs.reduce(function(s2, x){ return s2 + x * x; }, 0) / errs.length) : null;
+  best.aheadN = errs.length;
   best.at = function(ms){
     var v = fit(ms); if (v === null || !miss.length) return v;
     if (ms <= miss[0].ms) return v + miss[0].d;
@@ -4401,7 +4412,7 @@ function nowTempTile(M){
   var tg = r.last ? 'Tested ' + Math.round(r.last.tempF) + '°<span data-d> · ' + esc(nowWhen(r.last)) + '</span>' : 'No temperature tests yet';
   var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF};
   var foot = r.noWx ? (nowWxBusy || !nowWx ? 'Loading the weather…' : 'Weather didn’t load, so this is the last test') : isNum(r.tomorrow) ? 'Tomorrow<span data-d> afternoon</span> ≈' + Math.round(r.tomorrow) + '°' : '';
-  var acc = r.m && r.m.n >= 4 && isNum(r.m.rms) ? 'Forecast usually within ±' + Math.max(1, Math.round(r.m.rms)) + '°' : r.m ? 'Rough until there are a few more temperature tests' : '';
+  var acc = r.m && isNum(r.m.ahead) ? 'Forecast usually within ±' + Math.max(1, Math.round(r.m.ahead)) + '°' : r.m ? 'Rough until there are a few more temperature tests' : '';
   var an = r.m && r.m.anchor, wxd = an ? r.v - an.v : 0;
   var how = r.m ? nowHow([isNum(r.m.air4) ? ['Air, last 4 days on average', Math.round(r.m.air4) + '°'] : null,
     an ? ['Last test<span data-d> (' + esc(nowWhen(r.last)) + ')</span>', Math.round(an.v) + '°'] : ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
