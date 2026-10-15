@@ -1328,6 +1328,9 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 /* the ⋯ on a dashboard entry (in the card's top line) and its menu's heading lines */
 #emBody{display:contents}
 .emk{margin-left:auto;background:none;border:0;color:var(--muted);font:inherit;font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;cursor:pointer}
+.mk.emk{font-size:16px;padding:2px 0;margin:-2px -6px -2px 0;width:28px}   /* a joined test's ⋯ looks like every other ⋯ (2026-10-15) */
+.popScrim{position:fixed;inset:0;z-index:79;background:rgba(0,0,0,.18);display:none}   /* behind a ⋯ menu box (2026-10-15) */
+.popScrim.show{display:block}
 .emk:hover{color:var(--ink);background:var(--soft)}
 /* Remove test (test ⋯) and Review removed tests (top ⋯), Manager */
 .mkrm{display:flex;gap:8px;margin-top:10px}
@@ -1365,8 +1368,11 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .head .lhs{display:inline-flex;align-items:baseline;gap:7px;min-width:0;flex:0 1 auto;overflow:hidden}
 .head .rhs{margin-left:auto;flex:0 0 auto}
 .time{font-size:16.5px}
-.who{display:inline-flex;align-items:center;gap:3px;font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.who svg{width:12px;height:12px;flex:0 0 12px}
+.who{display:inline-flex;align-items:baseline;gap:3px;font-size:13px;color:var(--ink2);white-space:nowrap;min-width:0}
+.who svg{width:12px;height:12px;flex:0 0 12px;align-self:center}
+/* the name sits on the same line as the time and tags (2026-10-15): the box lines up by its text, not its bottom edge -
+   only the name itself is clipped (a clipped box is lined up by its bottom, which lifted it on iPhones) */
+.who .wn{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .wx{font-size:12.5px}
 
 .head .emk{margin:-2px -6px -2px 2px;font-size:16px}
@@ -1422,7 +1428,7 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 /* tests above the jobs (2026-10-14) */
 .up .tdue:not([hidden])+.jobs:not([hidden]){margin-top:10px}
 .up .tdue:not([hidden])+.jobs[hidden]+#jlines .jline:first-child{margin-top:10px}
-.jobs:not([hidden])+#jlines .jline:first-child{margin-top:12px}   /* room under the job rows (2026-10-14) */
+.jobs:not([hidden])+#jlines .jline:first-child{margin-top:8px}   /* room under the job rows (2026-10-14) */
 .up .tdue::-webkit-scrollbar{display:none}
 .tdc{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;background:var(--card);border:0;border-radius:10px;padding:6px 5px 5px;color:var(--muted);font-size:10.5px;overflow:visible}
 .tdc b{display:block;margin:0;font-size:13.5px}
@@ -2339,7 +2345,7 @@ function sameName(a, b){ a = String(a || '').trim(); b = String(b || '').trim();
 function whoHtml(x){
   if (!x || x.src !== 'Dashboard' || !x.by) return '';
   var bys = x.bys && x.bys.length ? x.bys : [x.by];
-  return '<span class="who" title="Entered by ' + esc(bys.map(fullName).join(', ')) + '">' + PERSON_SVG + esc(bys.map(firstName).join(', ')) + '</span>';
+  return '<span class="who" title="Entered by ' + esc(bys.map(fullName).join(', ')) + '">' + PERSON_SVG + '<span class="wn">' + esc(bys.map(firstName).join(', ')) + '</span></span>';
 }
 /** CSI is always between -1 and 1: wrap its leading zero so phones can drop it ("-0.29" -> "-.29"). */
 function numHtml(key, v){
@@ -2404,7 +2410,7 @@ function testById(id){
 }
 function testCard(t){
   // joined tile (one test logged in pieces): its ⋯ lists the entries; each is edited / deleted from there
-  var mk = t.wait ? '' : t.parts ? '<button type="button" class="emk" data-ek="parts" data-eid="' + esc(t.id) + '" aria-label="The entries in this test">⋯</button>'
+  var mk = t.wait ? '' : t.parts ? '<button type="button" class="mk emk" data-ek="parts" data-eid="' + esc(t.id) + '" aria-label="The entries in this test">⋯</button>'
     : mkBtn('store', t.id) || (window.entryMk ? entryMk(t, 'test') : '');
   return '<div class="card test' + (t.store ? ' store' : '') + (t.hidden ? ' thid' : '') + (t.wait ? ' wait' : '') + '"><div class="head"><span class="lhs"><span class="time">' + esc(t.time) + '</span>' +
     whoHtml(t) + (t.wait ? WAIT_TAG : '') +
@@ -2583,8 +2589,11 @@ function popNode(){
       if (e.target.closest && e.target.closest('[data-mkrm]') && popCurChip && popCurChip.hasAttribute('data-mkid')){ mkRemove(popCurChip, e.target.closest('[data-mkrm]').getAttribute('data-mkrm')); return; }
       var ed = e.target.closest && e.target.closest('[data-mked]');
       if (ed && popCurChip && popCurChip.hasAttribute('data-mkid')){
-        var eid = popCurChip.getAttribute('data-mkid'), ek = popCurChip.getAttribute('data-mk') === 'slow' ? 'chem' : 'test'; closePop();
-        if (ed.getAttribute('data-mked') === 'edit') { if (window.entryEdit) entryEdit(ek, eid); } else if (window.entryDel) entryDel(ek, eid);
+        var mkk = popCurChip.getAttribute('data-mk'), eid = popCurChip.getAttribute('data-mkid'), act = ed.getAttribute('data-mked');
+        var ek = mkk === 'entry' ? popCurChip.getAttribute('data-ek') : mkk === 'slow' ? 'chem' : 'test';
+        if (act === 'edit') { closePop(); if (window.entryEdit) entryEdit(ek, eid); return; }
+        if (act === 'del' || act === 'keep') { mkConfirm = act === 'del' ? 'd:' + eid : ''; mkMsg = ''; openPopFor(popCurChip, true); return; }
+        if (act === 'del2' && !mkBusy) mkDelete(popCurChip, ek, eid);
         return;
       }
       if (e.target.closest && e.target.closest('[data-jsw]') && popCurChip){
@@ -2620,10 +2629,20 @@ function popNode(){
   }
   return popEl;
 }
+var popScrim = null;
+/** The dimmed page behind a ⋯ box (2026-10-15, Camelo: "darken the screen behind it just a little"); a tap on it closes. */
+function popScrimShow(on){
+  if (!popScrim && on) {
+    popScrim = document.createElement('div'); popScrim.className = 'popScrim'; document.body.appendChild(popScrim);
+    popScrim.addEventListener('click', function(e){ e.stopPropagation(); closePop(); });
+  }
+  if (popScrim) popScrim.classList.toggle('show', !!on);
+}
 function closePop(){
   if (popShowT){ clearTimeout(popShowT); popShowT = null; }
   if (popHideT){ clearTimeout(popHideT); popHideT = null; }
   if (popEl) popEl.classList.remove('show');
+  popScrimShow(false); if (!mkBusy) mkConfirm = '';
   popPinned = false; trkEdit = -1; trkMsg = ''; mkMsg = '';
   var open = document.querySelector('.popopen');
   if (open) open.classList.remove('popopen');
@@ -2804,13 +2823,29 @@ function chipFromEvent(e){ return e.target && e.target.closest ? e.target.closes
 // ------------------------------------------------------------------ ⋯ marks: slow feed (additions) and Leslie's (tests)
 // Saved on the sheet's Manual marks tab; Yes or No there wins over the Pool Math note rules.
 var mkBusy = false, mkMsg = '', mkConfirm = '';
-function mkItem(kind, id){
+function mkItem(kind, id, ek){
+  if (kind === 'entry') return ek === 'test' ? testById(id) : ((ek === 'chem' ? DATA.chems : DATA.notes) || []).filter(function(x){ return x.id === id; })[0] || null;
   if (kind !== 'slow') return testById(id);
   return (DATA.chems || []).filter(function(x){ return x.id === id; })[0] || null;
 }
+/** Edit / Delete at the bottom of a ⋯ box (and the "Delete?" question in place of them, mkConfirm = 'd:' + id). */
+function mkEdRow(ek, id){
+  var w = {test: 'test', note: 'note', chem: 'addition'}[ek] || 'entry';
+  if (mkConfirm === 'd:' + id) return '<div class="trkhint" style="color:var(--ink)">Delete this ' + w + '? This can\'t be undone.</div>' +
+    '<div class="mkrm"><button type="button" class="btn" data-mked="keep">Keep it</button><button type="button" class="btn danger" data-mked="del2"' + (mkBusy ? ' disabled' : '') + '>' + (mkBusy ? 'Deleting…' : 'Delete') + '</button></div>';
+  return '<div class="mkrm"><button type="button" class="btn" data-mked="edit">Edit</button><button type="button" class="btn danger" data-mked="del">Delete</button></div>';
+}
 function mkPopHtml(btn){
-  var kind = btn.getAttribute('data-mk'), id = btn.getAttribute('data-mkid'), it = mkItem(kind, id);
+  var kind = btn.getAttribute('data-mk'), id = btn.getAttribute('data-mkid'), it = mkItem(kind, id, btn.getAttribute('data-ek'));
   if (!it) return '';
+  if (kind === 'entry') {                                        // a dashboard entry without switches: details, then Edit / Delete
+    var ek = btn.getAttribute('data-ek');
+    return '<div class="poph"><b>' + esc(ek === 'chem' ? 'Added ' + it.summary : ek === 'test' ? 'Test' : 'Note') + '</b></div>' +
+      '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + (ek === 'chem' ? groupInfo(it).time : it.time)) + '</div>' +
+      (it.w && wxFull(it.w) ? '<div style="color:var(--muted)">' + esc(wxFull(it.w)) + '</div>' : '') +
+      (it.by ? '<div style="color:var(--muted)">Entered by ' + esc(fullName(it.by)) + '</div>' : '') +
+      mkEdRow(ek, id) + (mkMsg ? '<div class="trkerr">' + esc(mkMsg) + '</div>' : '');
+  }
   var on = kind === 'slow' ? !!it.slow : !!it.store;
   var title = kind === 'slow' ? 'Added ' + it.summary : 'Test';
   var label = kind === 'slow' ? 'Went through the slow feeder' : 'Leslie\'s (pool store) test';
@@ -2819,15 +2854,15 @@ function mkPopHtml(btn){
     : (on ? 'Shown with a blue outline and the Leslie\'s label.' : 'Counted as your own test.');
   return '<div class="poph"><b>' + esc(title) + '</b></div>' +
     '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + (kind === 'slow' ? groupInfo(it).time : it.time)) + '</div>' +
-    (kind === 'store' && it.w && wxFull(it.w) ? '<div style="color:var(--muted)">' + esc(wxFull(it.w)) + '</div>' : '') +
+    (it.w && wxFull(it.w) ? '<div style="color:var(--muted)">' + esc(wxFull(it.w)) + '</div>' : '') +
     (it.src === 'Dashboard' && it.by ? '<div style="color:var(--muted)">Entered by ' + esc(fullName(it.by)) + '</div>' : '') +
     '<div class="mksw"><span>' + label + '</span><button type="button" class="tgl' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '" data-mktoggle="' + kind + '"' + (mkBusy ? ' disabled' : '') + '></button></div>' +
     '<div class="trkhint">' + (mkBusy ? 'Saving…' : esc(hint)) + '</div>' +
-    (kind === 'slow' && it.src === 'Dashboard' ? '<div class="mkrm"><button type="button" class="btn" data-mked="edit">Edit</button><button type="button" class="btn danger" data-mked="del">Delete</button></div>' : '') +
+    (kind === 'slow' && it.src === 'Dashboard' ? mkEdRow('chem', id) : '') +
     (kind === 'store' ? '<div class="mksw"><span>Hide from members</span><button type="button" class="tgl' + (it.hidden ? ' on' : '') + '" role="switch" aria-checked="' + !!it.hidden + '" aria-label="Hide from members" data-mktoggle="hide"' + (mkBusy ? ' disabled' : '') + '></button></div>' +
       '<div class="trkhint">' + esc(it.hidden ? 'Members do not see this test. Board and manager still do.' : 'Members see tests from the last ' + (DATA.memberDays || 7) + ' days.') + '</div>' +
       (it.src === 'Dashboard'
-        ? '<div class="mkrm"><button type="button" class="btn" data-mked="edit">Edit test</button><button type="button" class="btn danger" data-mked="del">Delete test</button></div>'
+        ? mkEdRow('test', id)
         : mkConfirm === id
         ? '<div class="trkhint" style="color:var(--ink)">Remove this test? It disappears for everyone and stops counting for due dates, predictions and CSI. You can bring it back from ⋯ &gt; Review removed tests.</div>' +
           '<div class="mkrm"><button type="button" class="btn" data-mkrm="no">Keep it</button><button type="button" class="btn danger" data-mkrm="yes"' + (mkBusy ? ' disabled' : '') + '>Remove</button></div>'
@@ -2859,6 +2894,17 @@ function mkToggle(btn, which){
   }, function(err){ mkBusy = false; mkMsg = 'Could not reach the server: ' + (err && err.message || err); mkReopen(kind, id); });
 }
 
+/** Delete a dashboard entry from its ⋯ box (2026-10-15; was the panel from the bottom). */
+function mkDelete(btn, ek, id){
+  mkBusy = true; mkMsg = ''; openPopFor(btn, true);
+  serverCall('deleteEntry', [CODE, ek, id], function(res){
+    mkBusy = false;
+    if (res && res.ok === false && res.why && res.why !== 'level') { mkConfirm = ''; closePop(); handleDenied(res); return; }
+    if (!res || !res.ok) { mkMsg = (res && res.message) || 'Not deleted. Try again.'; openPopFor(btn, true); return; }
+    mkConfirm = ''; closePop(); DATA = res.data; renderAll();
+    bgSet((ek === 'test' ? 'Test' : ek === 'chem' ? 'Addition' : 'Note') + ' deleted.', 'ok'); setTimeout(function(){ bgSet(''); }, 2500);
+  }, function(){ mkBusy = false; mkMsg = 'Could not reach the server. Try again.'; openPopFor(btn, true); });
+}
 /** Remove a test (Manager): 'ask' shows the confirm, 'no' backs out, 'yes' saves the Removed mark. */
 function mkRemove(btn, step){
   if (mkBusy) return;
@@ -2921,6 +2967,7 @@ function openPopFor(chip, pinned){
   chip.classList.add('popopen');
   positionPop(chip);
   popPinned = !!pinned;
+  popScrimShow(chip.classList.contains('mk'));
 }
 
 // ------------------------------------------------------------------ "last added" trackers (rows of the Trackers tab; unlocked only)
@@ -7841,8 +7888,10 @@ document.addEventListener('DOMContentLoaded', function(){
   // ---- the ⋯ on a dashboard entry (edit / delete). The name now sits by the time (whoHtml); this is only the button.
   // The Manager's tests use the marks ⋯ instead, which has Edit / Delete too (entryEdit / entryDel).
   function mine(x){ return !!(x && x.src === 'Dashboard' && DATA.canEnter && (isMgr() || sameName(x.by, DATA.me))); }
+  // one ⋯ for every entry (2026-10-15): the same button and the same small box next to the row as the Manager's marks
+  // (mkPopHtml kind 'entry'), with a dimmed page behind it; the old panel from the bottom is only for a joined test's parts
   window.entryMk = function(x, kind){
-    return mine(x) ? '<button type="button" class="emk" data-ek="' + kind + '" data-eid="' + esc(x.id) + '" aria-label="Edit or delete">⋯</button>' : '';
+    return mine(x) ? '<button type="button" class="mk" data-mk="entry" data-ek="' + kind + '" data-mkid="' + esc(x.id) + '" aria-label="Details, edit or delete">⋯</button>' : '';
   };
   window.entryCanFix = mine;
   /** A job's "Log it": Add chemical with that job's chemical (and amount) already picked. o = {label?, setting, amount?, unit?, slow}. */
