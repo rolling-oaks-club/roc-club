@@ -4324,7 +4324,7 @@ function nowChart(o){
   var ck = o.k + (o.big ? '+' : '');
   nowCharts[ck] = o;
   if (nowZoom[ck]) o = Object.assign({}, o, {span: nowZoom[ck], back: Math.min(o.back || nowZoom[ck], Math.max(o.span, nowZoom[ck] * 30))});   // zoomed in: up to 30 screens back, so it stays quick
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = o.zones ? 62 : 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
+  var Wv = Math.max(240, nowW - 32), padL = 2, padR = o.zones ? 62 : 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   // the scale: what is in the window on screen (nowWin[ck] after a swipe; else the newest span), a little either side
@@ -4347,6 +4347,10 @@ function nowChart(o){
   var pad = (hi - lo) * 0.12 || Math.max(Math.abs(hi) * 0.1, 0.5); lo -= pad; hi += pad;
   if (o.floor !== undefined) lo = Math.max(o.floor, lo);
   if (o.minHi !== undefined) hi = Math.max(hi, o.minHi);
+  if (o.fix) {                                                   // a fixed scale (CSI -0.5 to 0.5, 2026-10-15); a reading past it widens it so it isn't hidden
+    var vmn = Math.min.apply(null, vals), vmx = Math.max.apply(null, vals);
+    lo = Math.min(o.fix[0], isFinite(vmn) ? vmn - 0.03 : o.fix[0]); hi = Math.max(o.fix[1], isFinite(vmx) ? vmx + 0.03 : o.fix[1]);
+  }
   var X = function(ms){ return padL + iw * (ms - x0) / (x1 - x0); }, Y = function(v){ return top + ih * (1 - (v - lo) / (hi - lo)); };
   var col = 'var(--k-' + o.k + ')', s = '', cid = 'nc' + ck.replace('+', 'b');
   s += '<defs><clipPath id="' + cid + '"><rect x="0" y="' + (top - 6) + '" width="' + W + '" height="' + (ih + 12) + '"/></clipPath></defs>';
@@ -4624,7 +4628,7 @@ function nowCsiDetail(M){
   var r = M.r.csi; if (!r) return '';
   var pts = nowTests('csi').map(function(t){ return {ms: t.ms, v: t.csi, by: t.by, t: t}; });
   var g = function(k, d){ return M.r[k] ? nowFmt(k, M.r[k].v) : '–'; };
-  var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', minSpread: 0.4, small: true, big: true, pts: pts,
+  var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, pts: pts,   // tall: 170 px (220 on computers)
     est: [{ms: M.now, v: r.v}], nowV: r.v, back: NOW_BACK.csi, fut: r.fut, ahead: r.fut && r.fut.length ? 48 : 0};
   var ph78 = M.r.ph ? nowCsi(7.8, M.r.ta.v, M.r.ch.v, M.r.cya.v, r.salt, r.bor, M.r.tempF.v) : null;
   return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">Worked out from the estimates below</span></span></div>' +
