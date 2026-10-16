@@ -4853,7 +4853,8 @@ function nowCsiBridge(){
   var btn = $('nowCsiBtn'), tile = box.querySelector('.ncsid');
   if (btn) btn.classList.toggle('joined', !!tile);
   if (!btn || !tile || !box.offsetParent) return;
-  var b = box.getBoundingClientRect(), r = btn.getBoundingClientRect(), t = tile.getBoundingClientRect(), R = 14;
+  // the tile's place from its layout (offsetTop), not its box on screen, which is mid-animation while it grows
+  var b = box.getBoundingClientRect(), r = btn.getBoundingClientRect(), R = 14, tTop = b.top + tile.offsetTop, t = {top: tTop};
   var add = function(css){ var d = document.createElement('div'); d.className = 'ncsibr'; d.style.cssText = css; box.appendChild(d); return d; };
   add('left:' + (r.left - b.left) + 'px;top:' + (r.bottom - b.top - 1) + 'px;width:' + r.width + 'px;height:' + (t.top - r.bottom + 2) + 'px');
   add('left:' + (r.left - b.left - R) + 'px;top:' + (t.top - b.top - R + 1) + 'px;width:' + R + 'px;height:' + R + 'px;background:radial-gradient(circle at 0 0,transparent ' + R + 'px,var(--card) ' + (R + 0.5) + 'px)');
