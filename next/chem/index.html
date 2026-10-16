@@ -4629,6 +4629,12 @@ function nowTile(M, def){
         var ap = nowAcidPct(), agal = Math.ceil(lo2 * NOW_L / 50000 * 36.46 / (ap / 100 * (1 + 0.005 * ap)) / 3785.411784 * 10 - 1e-9) / 10;
         todo = 'To bring it to 7.5: about <b>' + fmtNum(agal) + ' gal acid</b> (' + fmtNum(ap) + '%), diluted.'; }
     } else if (gp && r.v < gp.lo) todo = 'Low. It rises by itself; the acid feeder may be set too high.';
+    // ahead (2026-10-16, Camelo: "like FC does"): the next 24 h from the same estimate (usual rise less the acid already
+    // in the feeders), and when it passes the top of green within 2 days
+    var pf = [], pOver = null;
+    for (var tp = M.now + 2 * HR; tp <= M.now + 48 * HR; tp += 2 * HR) { var pv = r.at(tp).v; if (tp <= M.now + 24 * HR) pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp; }
+    chartO.fut = pf; chartO.ahead = 24;
+    if (pOver && !todo) todo = 'At this pace it passes ' + gp.hi + ' around ' + nowClock(Math.round(pOver / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }) + '.';
   } else if (k === 'ta' || k === 'ch' || k === 'cya') {
     var lbl = {ta: 'Acid since then (feeder and by hand)', ch: 'Cal-hypo since then', cya: 'Trichlor / dichlor since then'}[k];
     how = nowHow([['Tested ' + nowWhen(r.last), nowFmt(k, r.last[k])], Math.abs(r.add) >= 0.5 ? [lbl, nowSigned(k, r.add)] : null,
