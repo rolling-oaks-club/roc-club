@@ -4858,9 +4858,10 @@ function nowCsiBridge(){
   var add = function(css){ var d = document.createElement('div'); d.className = 'ncsibr'; d.style.cssText = css; box.appendChild(d); return d; };
   add('left:' + (r.left - b.left) + 'px;top:' + (r.bottom - b.top - 1) + 'px;width:' + r.width + 'px;height:' + (t.top - r.bottom + 2) + 'px');
   add('left:' + (r.left - b.left - R) + 'px;top:' + (t.top - b.top - R + 1) + 'px;width:' + R + 'px;height:' + R + 'px;background:radial-gradient(circle at 0 0,transparent ' + R + 'px,var(--card) ' + (R + 0.5) + 'px)');
-  // on the right the box sits inside the tile's rounded corner: square that corner and let the curve fill just the gap
-  var gap = b.left + tile.offsetLeft + tile.offsetWidth - r.right, Rr = Math.max(0, Math.min(R, gap));
-  tile.style.borderTopRightRadius = gap < R + 24 ? '0' : '';
+  // on the right the box sits inside the tile's rounded corner: an S-curve - out from the box with half the gap, then the
+  // tile's corner rounded with the other half - so it flows like the left side (2026-10-16, no square corner)
+  var gap = b.left + tile.offsetLeft + tile.offsetWidth - r.right, tight = gap < R + 24, Rr = tight ? Math.max(0, gap / 2) : R;
+  tile.style.borderTopRightRadius = tight ? Math.max(0, gap / 2) + 'px' : '';
   if (Rr >= 2) add('left:' + (r.right - b.left) + 'px;top:' + (t.top - b.top - Rr + 1) + 'px;width:' + Rr + 'px;height:' + Rr + 'px;background:radial-gradient(circle at 100% 0,transparent ' + Rr + 'px,var(--card) ' + (Rr + 0.5) + 'px)');
 }
 window.addEventListener('resize', function(){ setTimeout(nowCsiBridge, 200); });
