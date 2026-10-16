@@ -4174,7 +4174,7 @@ function nowModel(){
   var fcm = nowFcModel(cs), lastFc = nowTests('fc').pop();
   if (lastFc) {
     var run = nowFcRun(lastFc.fc, nowFcSteps(cs, lastFc.ms, now), fcm.al, fcm.be, true);
-    var fut = nowFcRun(run.fc, nowFcSteps(cs, now, now + 36 * HR), fcm.al, fcm.be, true);
+    var fut = nowFcRun(run.fc, nowFcSteps(cs, now, now + 48 * HR), fcm.al, fcm.be, true);
     M.r.fc = {last: lastFc, v: run.fc, run: run, fut: fut.path, m: fcm, past: nowPast(cs, 'fc', fcm.al, fcm.be)};
   }
   // pH
@@ -4617,7 +4617,7 @@ function nowTile(M, def){
     extra = '<div><h4>Chlorine used, ppm per day, by week (Mon–Sun)</h4><div class="nbars">' + r.m.weeks.map(function(v, i){
       var ws = new Date(r.m.weekStarts[i]);
       return '<div><b>' + (isNum(v) ? fmtNum(Math.round(v * 10) / 10) : '–') + '</b><i style="height:' + (isNum(v) ? Math.max(2, Math.round(v / mx * 38)) : 0) + 'px"></i>' + (i === 5 ? 'This wk' : MONTHS[ws.getUTCMonth()] + ' ' + ws.getUTCDate()) + '</div>'; }).join('') + '</div></div>';
-    chartO.fut = r.fut; chartO.ahead = 24;
+    chartO.fut = r.fut; chartO.ahead = 48;
   } else if (k === 'ph') {
     foot = 'Rises about ' + fmtNum(Math.round(r.rate * 24 * 100) / 100) + ' a day<span data-d> without acid</span>';
     how = nowHow([['Tested ' + nowWhen(r.last), nowFmt('ph', r.last.ph)], r.drop > 0.005 ? ['Acid since then', nowSigned('ph', -r.drop)] : null,
@@ -4629,6 +4629,12 @@ function nowTile(M, def){
         var ap = nowAcidPct(), agal = Math.ceil(lo2 * NOW_L / 50000 * 36.46 / (ap / 100 * (1 + 0.005 * ap)) / 3785.411784 * 10 - 1e-9) / 10;
         todo = 'To bring it to 7.5: about <b>' + fmtNum(agal) + ' gal acid</b> (' + fmtNum(ap) + '%), diluted.'; }
     } else if (gp && r.v < gp.lo) todo = 'Low. It rises by itself; the acid feeder may be set too high.';
+    // ahead (2026-10-16, Camelo: "like FC does", 2 days for CSI, FC and pH): the next 48 h from the same estimate (usual rise less the acid already
+    // in the feeders), and when it passes the top of green within 2 days
+    var pf = [], pOver = null;
+    for (var tp = M.now + 2 * HR; tp <= M.now + 48 * HR; tp += 2 * HR) { var pv = r.at(tp).v; pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp; }
+    chartO.fut = pf; chartO.ahead = 48;
+    if (pOver && !todo) todo = 'At this pace it passes ' + gp.hi + ' around ' + nowClock(Math.round(pOver / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }) + '.';
   } else if (k === 'ta' || k === 'ch' || k === 'cya') {
     var lbl = {ta: 'Acid since then (feeder and by hand)', ch: 'Cal-hypo since then', cya: 'Trichlor / dichlor since then'}[k];
     how = nowHow([['Tested ' + nowWhen(r.last), nowFmt(k, r.last[k])], Math.abs(r.add) >= 0.5 ? [lbl, nowSigned(k, r.add)] : null,
@@ -4771,10 +4777,10 @@ function nowSummary(M){
     }
     else if (isFinite(gfc.hi) && fc.v > gfc.hi) {
       // FC high (2026-10-10, Camelo: "says everything looks in range, but chlorine is clearly predicted high"): say so, and
-      // when the forecast brings it back under the top of the green range (the 36-hour forecast, then up to a week ahead)
+      // when the forecast brings it back under the top of the green range (the 2-day forecast, then up to a week ahead)
       fcHigh = true;
       // Both times (Camelo, 2026-10-10): under the state's limit (the top of the highest band that isn't red: FC 8, "OK
-      // to swim") and back in green (FC 7). The 36-hour forecast first, then up to a week ahead.
+      // to swim") and back in green (FC 7). The 2-day forecast first, then up to a week ahead.
       var legal = -Infinity; bandsFor('FC').forEach(function(b){ if (b.color !== 'red' && b.max != null && isFinite(b.max)) legal = Math.max(legal, b.max); });
       var wk = null, under = function(lim){
         var x = fc.fut.filter(function(p){ return p.v <= lim; })[0];
