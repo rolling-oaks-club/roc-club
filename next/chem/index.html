@@ -4353,7 +4353,7 @@ function nowChart(o){
   nowCharts[ck] = o;
   if (nowZoom[ck]) o = Object.assign({}, o, {span: nowZoom[ck], back: Math.min(o.back || nowZoom[ck], Math.max(o.span, nowZoom[ck] * 30))});   // zoomed in: up to 30 screens back, so it stays quick
   // one right margin for every chart (room for the zone words), so opening a tile doesn't move Now or the end line (2026-10-16)
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 56, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : o.taller ? 150 : 120) : o.taller ? (NOW_DESK() ? 160 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
+  var Wv = Math.max(240, nowW - 32), padL = 2, padR = 50, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : o.taller ? 150 : 120) : o.taller ? (NOW_DESK() ? 160 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   // the scale: what is in the window on screen (nowWin[ck] after a swipe; else the newest span), a little either side
@@ -4430,7 +4430,9 @@ function nowChart(o){
     s += '<line x1="' + nx.toFixed(1) + '" x2="' + nx.toFixed(1) + '" y1="' + (top - 4) + '" y2="' + (top + ih) + '" class="nnow"/>';
     s += '<text class="ntagt" x="' + (nx - 4).toFixed(1) + '" y="' + (top - 6) + '" text-anchor="end">Now</text>';
     s += '<line x1="' + ex.toFixed(1) + '" x2="' + ex.toFixed(1) + '" y1="' + (top - 4) + '" y2="' + (top + ih) + '" class="nnow"/>';
-    s += '<text class="ntagt nend" x="' + (W - 1) + '" y="' + (top - 6) + '" text-anchor="end">' + esc(endT) + '</text>';
+    // the end time centered over its line (2026-10-16), kept inside the chart; Now's label stays left of its line
+    var ew = endT.length * 6.2, exl = Math.min(W - 1 - ew / 2, ex);
+    s += '<text class="ntagt nend" x="' + exl.toFixed(1) + '" y="' + (top - 6) + '" text-anchor="middle">' + esc(endT) + '</text>';
   }
   // feeders running
   (o.feeds || []).forEach(function(f){
@@ -4679,9 +4681,35 @@ function nowCsiDetail(M){
   var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, soft: true, pts: pts,   // tall: 170 px (220 on computers)
     est: [{ms: M.now, v: r.v}], nowV: r.v, back: NOW_BACK.csi, fut: r.fut, ahead: r.fut && r.fut.length ? 48 : 0};
   var ph78 = M.r.ph ? nowCsi(7.8, M.r.ta.v, M.r.ch.v, M.r.cya.v, r.salt, r.bor, M.r.tempF.v) : null;
-  return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">Worked out from the estimates below</span></span></div>' +
-    nowChart(co) + '<div class="ndet" style="display:flex">' +
-    nowHow([['pH ≈' + g('ph') + ' · TA ≈' + g('ta') + ' · CH ≈' + g('ch'), ''], ['CYA ≈' + g('cya') + ' · water ≈' + g('tempF') + '° · salt ' + Math.round(r.salt), '']], ['CSI now', '≈' + nowFmt('csi', r.v)]) +
+  // How we got (2026-10-16, like the other tiles): the last test's CSI, then what moved it since - each reading swapped from
+  // what it was at that test (its own value, or the latest before it) to its estimate now, one at a time, pH first
+  var L = r.last, how = '', sub = 'Worked out from the estimates below';
+  if (L) {
+    var KS = [['ph', 'pH'], ['tempF', 'Water'], ['ta', 'TA'], ['ch', 'CH'], ['cya', 'CYA']], cur = {}, ok = true;
+    KS.forEach(function(x){ var t0 = isNum(L[x[0]]) ? L : nowLastBefore(x[0], L.ms, 45 * DAYMS); cur[x[0]] = t0 ? t0[x[0]] : (M.r[x[0]] ? M.r[x[0]].v : null); if (!isNum(cur[x[0]])) ok = false; });
+    var calc = function(){ return nowCsi(cur.ph, cur.ta, cur.ch, cur.cya, r.salt, r.bor, cur.tempF); };
+    var c0 = ok ? calc() : null;
+    if (c0 !== null) {
+      var start = isNum(L.csi) ? L.csi : c0, sum = start;            // the test's own CSI, so it matches the subtitle
+      var rows = [['Last test ' + esc(nowWhen(L)), nowFmt('csi', start)]];
+      KS.forEach(function(x){
+        var nv = M.r[x[0]] ? M.r[x[0]].v : null; if (!isNum(nv)) return;
+        var was = cur[x[0]], before = calc(); cur[x[0]] = nv; var d = calc() - before;
+        if (Math.abs(d) < 0.005) return;
+        sum += d;
+        var fmtv = function(v){ return x[0] === 'tempF' ? Math.round(v) + '°' : nowFmt(x[0], v); };
+        rows.push([x[1] + ' ' + fmtv(was) + ' → ≈' + fmtv(nv), (d < 0 ? '−' : '+') + Math.abs(d).toFixed(2)]);
+      });
+      var rest = r.v - sum;                                         // the test's CSI used readings from other days: what's left
+      if (Math.abs(rest) >= 0.01) rows.push(['Other (readings borrowed for the test)', (rest < 0 ? '−' : '+') + Math.abs(rest).toFixed(2)]);
+      if (rows.length === 1) rows.push(['Nothing much has moved since', '']);
+      how = '<div><h4>How we got ≈' + nowFmt('csi', r.v) + '</h4>' + nowHow(rows, ['Now', '≈' + nowFmt('csi', r.v)]) + '</div>';
+      sub = 'Last test ' + nowFmt('csi', L.csi) + ' · ' + nowWhen(L);
+    }
+  }
+  return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">' + esc(sub) + '</span></span></div>' +
+    nowChart(co) + '<div class="ndet" style="display:flex">' + how +
+    '<p class="nsure">Estimates now: pH ≈' + g('ph') + ' · TA ≈' + g('ta') + ' · CH ≈' + g('ch') + ' · CYA ≈' + g('cya') + ' · water ≈' + g('tempF') + '° · salt ' + Math.round(r.salt) + '</p>' +
     '<div class="ntodo">Between −0.1 and 0.3 the water neither eats plaster nor leaves scale. pH moves it most' + (ph78 !== null ? ': at pH 7.8 it would be ' + nowFmt('csi', ph78) : '') + '.</div>' +
     nowStats('csi', 'CSI', 42) + '</div></div>';
 }
