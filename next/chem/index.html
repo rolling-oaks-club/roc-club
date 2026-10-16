@@ -4282,6 +4282,17 @@ function nowAcidPct(){ var a = null; (DATA.chems || []).forEach(function(x){ if 
 /* ---- chart: tests as dots on a line, a dashed estimate from the last test on, triangles for additions, a bar for feeders */
 /** A soft line through every point (2026-10-10, Camelo: "a little softer, still through the dots"): monotone cubic
  *  (Fritsch-Carlson), so it never swings above a high dot or below a low one between them. pts = [[x, y]] in screen units. */
+/** A softer curve through every point (Catmull-Rom; CSI, 2026-10-15): it rounds the corners at each dot instead of
+ *  flattening there like nowCurve, so a run of daily tests reads as one flowing line. Overshoot is kept small (tension). */
+function nowSoftCurve(pts){
+  var n = pts.length, f = function(v){ return v.toFixed(1); }; if (n < 3) return nowCurve(pts);
+  var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]), k = 0.18;
+  for (var i = 0; i < n - 1; i++) {
+    var p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)];
+    d += ' C' + f(p1[0] + (p2[0] - p0[0]) * k) + ' ' + f(p1[1] + (p2[1] - p0[1]) * k) + ' ' + f(p2[0] - (p3[0] - p1[0]) * k) + ' ' + f(p2[1] - (p3[1] - p1[1]) * k) + ' ' + f(p2[0]) + ' ' + f(p2[1]);
+  }
+  return d;
+}
 function nowCurve(pts){
   var n = pts.length; if (!n) return '';
   var f = function(v){ return v.toFixed(1); };
@@ -4425,12 +4436,15 @@ function nowChart(o){
       line = line.concat(mid);
     });
     if (line.length > 1) {
-      var d1 = nowCurve(line.map(XY)), lineAt = function(d, more){ return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (more || '') + '/>'; };
+      var d1 = (o.soft ? nowSoftCurve : nowCurve)(line.map(XY)), lineAt = function(d, more){ return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (more || '') + '/>'; };
       s += '<path d="' + d1 + ' L' + X(line[line.length - 1].ms).toFixed(1) + ' ' + (top + ih) + ' L' + X(line[0].ms).toFixed(1) + ' ' + (top + ih) + ' Z" fill="' + col + '" opacity=".08"/>';
       // a stretch shaped by a quick addition is the model's guess at what happened in between: dashed, on a soft band
       // (picked from four looks, 2026-10-12); the rest stays a solid line
+      // no dashed stretch: one path for the whole line (2026-10-15; drawn piece by piece, a stretch with no model points
+      // between two tests came out as a straight piece with corners at the dots - the CSI chart's zigzag)
+      if (!runs.some(function(r){ return r.sg; })) runs = [{pts: line, d: d1}];
       runs.forEach(function(r){
-        var d = nowCurve(r.pts.map(XY));
+        var d = r.d || nowCurve(r.pts.map(XY));
         if (r.sg) s += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".16"/>';
         s += lineAt(d, r.sg ? ' stroke-dasharray="5 4"' : '');
       });
@@ -4445,7 +4459,6 @@ function nowChart(o){
     s += '<path d="' + nowCurve(f2.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-dasharray="2 4" opacity=".55"/>';
   }
   var dotR = o.small ? 2 : 2.6;
-  if (o.dots) pts = o.dots.filter(function(p){ return p.ms >= x0; });   // CSI: the line runs through day averages, a dot for every test
   pts.forEach(function(p, i){ s += '<circle cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === pts.length - 1 ? 3.6 : dotR) + '" fill="' + col + '"/>'; });
   // tap a dot = its reading, day and time, and who (2026-10-14): a bigger see-through circle on top of each one
   pts.forEach(function(p){ s += '<circle class="nhit" cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="13" data-tip="' + esc(nowTipText(o.k, p)) + '"/>'; });
@@ -4625,28 +4638,12 @@ function nowTempTile(M){
     nowChart(co) + '<div class="nfoot"><span>' + foot + '</span><span data-d>' + esc(acc) + '</span></div>' + det + '</div>';
 }
 
-var NOW_CSI_SMOOTH = 24;   // hours: how widely the CSI line is smoothed (2026-10-15)
 function nowCsiDetail(M){
   var r = M.r.csi; if (!r) return '';
   var dots = nowTests('csi').map(function(t){ return {ms: t.ms, v: t.csi, by: t.by, t: t}; });
-  // the line (2026-10-15, Camelo: the same smoothing as the other charts): tests within 12 hours of each other are averaged
-  // into one point, so a morning and an afternoon test don't make a sharp zigzag; the curve then flows through those
-  var pts = [];
-  dots.forEach(function(d){
-    var l = pts[pts.length - 1];
-    if (l && d.ms - l.ms0 < 12 * HR) { l.n++; l.sm += d.ms; l.sv += d.v; l.ms = l.sm / l.n; l.v = l.sv / l.n; }
-    else pts.push({ms: d.ms, v: d.v, ms0: d.ms, n: 1, sm: d.ms, sv: d.v});
-  });
-  // then lightly smoothed across neighbouring days (a bell-shaped weight, about a day either side): day-to-day CSI jumps are
-  // mostly test-kit wobble, so the line shows the trend and the dots sit near it (NOW_CSI_SMOOTH)
-  var sg = NOW_CSI_SMOOTH * HR;
-  pts = pts.map(function(p){
-    var sw = 0, sv = 0;
-    pts.forEach(function(q){ var w = Math.exp(-Math.pow((q.ms - p.ms) / sg, 2) / 2) * q.n; sw += w; sv += w * q.v; });
-    return {ms: p.ms, v: sv / sw};
-  });
+  var pts = dots;                                               // the line goes through every test (a softer curve, o.soft)
   var g = function(k, d){ return M.r[k] ? nowFmt(k, M.r[k].v) : '–'; };
-  var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, pts: pts, dots: dots,   // tall: 170 px (220 on computers)
+  var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, soft: true, pts: pts,   // tall: 170 px (220 on computers)
     est: [{ms: M.now, v: r.v}], nowV: r.v, back: NOW_BACK.csi, fut: r.fut, ahead: r.fut && r.fut.length ? 48 : 0};
   var ph78 = M.r.ph ? nowCsi(7.8, M.r.ta.v, M.r.ch.v, M.r.cya.v, r.salt, r.bor, M.r.tempF.v) : null;
   return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">Worked out from the estimates below</span></span></div>' +
