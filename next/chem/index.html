@@ -4340,11 +4340,27 @@ function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-widt
 var nowZoom = {}, nowCharts = {}, nowWin = {};
 var NOW_ZOOM_MIN = {fc: 1, ph: 1, cc: 1, ta: 4, ch: 4, cya: 4, csi: 3, tempF: 2};
 var NOW_ZONE_WORD = {red: 'corrosive', yellow: 'low', green: 'balanced', purple: 'scaling'};
+/* TRIAL (2026-10-15, may be thrown away): every Forecast chart in the CSI chart's style - a little taller, the Ranges tab's
+   colors as bands, words at the right. On with ?bands=1 (kept on this device), off with ?bands=0. */
+var NOW_BANDS = (function(){
+  try {
+    var m = /[?&]bands=([01])/.exec(location.search);
+    if (m) localStorage.setItem('nowBands', m[1]);
+    return localStorage.getItem('nowBands') === '1';
+  } catch(e){ return /[?&]bands=1/.test(location.search); }
+})();
+/** Words for a zone of reading rname, by where it sits against the green band: too low / low / good / high / too high. */
+function nowZoneWord(rname, z){
+  if (rname === 'CSI') return NOW_ZONE_WORD[z.c];
+  if (z.c === 'green') return 'good';
+  var g = nowGreen(rname), above = g && isFinite(g.hi) && z.a >= g.hi - 1e-9;
+  return z.c === 'red' ? (above ? 'too high' : 'too low') : (above ? 'high' : 'low');
+}
 function nowChart(o){
   var ck = o.k + (o.big ? '+' : '');
   nowCharts[ck] = o;
   if (nowZoom[ck]) o = Object.assign({}, o, {span: nowZoom[ck], back: Math.min(o.back || nowZoom[ck], Math.max(o.span, nowZoom[ck] * 30))});   // zoomed in: up to 30 screens back, so it stays quick
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = o.zones ? 62 : 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
+  var Wv = Math.max(240, nowW - 32), padL = 2, padR = o.zones ? 62 : 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : o.taller ? 150 : 120) : o.taller ? (NOW_DESK() ? 160 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   // the scale: what is in the window on screen (nowWin[ck] after a swipe; else the newest span), a little either side
@@ -4389,7 +4405,7 @@ function nowChart(o){
       if (!z.c) return;
       s += '<rect x="' + padL + '" y="' + Y(z.b).toFixed(1) + '" width="' + iw + '" height="' + (Y(z.a) - Y(z.b)).toFixed(1) + '" class="nzone z-' + z.c + '"/>';
       var zy = (Y(z.a) + Y(z.b)) / 2;
-      if (Y(z.a) - Y(z.b) >= 11) s += '<text class="nzw z-' + z.c + '" x="' + (W - padR + 6) + '" y="' + (zy + 3.5).toFixed(1) + '">' + NOW_ZONE_WORD[z.c] + '</text>';
+      if (Y(z.a) - Y(z.b) >= 11) s += '<text class="nzw z-' + z.c + '" x="' + (W - padR + 6) + '" y="' + (zy + 3.5).toFixed(1) + '">' + nowZoneWord(o.zones, z) + '</text>';
     });
   }
   if (o.band && !o.zones && isFinite(o.band.lo) && isFinite(o.band.hi)) {
@@ -4541,6 +4557,12 @@ function nowTile(M, def){
   var chartO = {k: k, name: def[1], span: NOW_SPAN[k], band: band, pts: pts, est: est ? (r.run ? r.run.path : r.path) : null, nowV: est ? r.v : null, unsure: unsure,
     adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined, past: r.past};
   if (k === 'ph') delete chartO.floor;
+  if (NOW_BANDS) {                                              // TRIAL: bands + words, a little taller, the whole range shown
+    chartO.zones = rname; chartO.taller = true;
+    var nlo = Infinity, nhi = -Infinity;                         // every band that isn't red (the "watch" zones included)
+    bandsFor(rname).forEach(function(b){ if (b.color === 'red') return; if (b.min != null && isFinite(b.min)) nlo = Math.min(nlo, b.min); if (b.max != null && isFinite(b.max)) nhi = Math.max(nhi, b.max); });
+    if (isFinite(nlo) && isFinite(nhi) && nhi > nlo) { var pd = (nhi - nlo) * 0.08; chartO.fix = [Math.max(0, nlo - pd), nhi + pd]; }
+  }
   var foot = '', how = '', todo = '', extra = '';
   var tested = 'Tested ' + nowFmt(k, r.last[k]) + '<span data-d> · ' + esc(nowWhen(r.last)) + '</span>';
   if (k === 'fc') {
