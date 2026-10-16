@@ -53,7 +53,12 @@
 // the side and the bottom = the screen's corner radius minus the button's (30), by iPhone screen width.
 (function(){
   try {
-    if (!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))) return;
+    if (!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))) {
+      // iPhone Safari (2026-10-16): the app's bottom controls (⋯ by the switch and the +, Refresh in the ⋯ menu / pull down);
+      // the top bar stays but scrolls away with the page (styles: "iPhone Safari" block)
+      if (/iPhone|iPod/.test(navigator.userAgent)) document.documentElement.classList.add('msafari');
+      return;
+    }
     var d = document.documentElement, w = Math.min(screen.width, screen.height);
     var R = {440: 62, 402: 62, 430: 55, 393: 55, 428: 53, 390: 47, 414: 41, 375: 40}[w] || 54;   // corner radius, points
     d.classList.add('app');
@@ -689,7 +694,7 @@ dialog .padj input[type=number]{width:80px;min-height:34px;font-size:16px;paddin
 @keyframes impspin{to{transform:rotate(360deg)}}
 #refreshBtn.spin svg{animation:impspin .8s linear infinite}
 /* pull to refresh (2026-10-14): the round arrow that comes down from the top */
-html{overscroll-behavior-y:none}
+html{overscroll-behavior-y:none;touch-action:manipulation}   /* manipulation (2026-10-16): no double-tap zoom, so a tap counts at once (two quick taps zoomed the page in Safari) */
 .ptr{position:fixed;left:50%;top:calc(var(--barH,0px) + var(--barTop,0px) + 8px);z-index:60;width:40px;height:40px;border-radius:50%;background:var(--card);color:var(--muted);
   display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);transform:translate(-50%,-50px);opacity:0;pointer-events:none}
 .ptr.go{color:var(--accent)}
@@ -1005,6 +1010,13 @@ body.can-enter #entryUi{display:block}
 /* home-screen app (html.app, set in <head>): no top bar; the bar's menu is a grey ⋯ circle above the + (for everyone, the +
    only for those who may enter); both sit on the screen's rounded corner, --cornerGap from the side and the bottom */
 .emore{display:none}
+/* iPhone Safari (html.msafari, 2026-10-16): the app's bottom controls, 16 px from the sides and low over Safari's address bar
+   (--sbot); the top bar keeps the page title but scrolls away (absolute, not fixed), without its Refresh and ⋯ */
+html.msafari{--cornerGap:16px;--sbot:12px}   /* 4 px made Safari draw a hard-edged band behind the buttons */
+html.msafari .bar{position:absolute}
+html.msafari #refreshBtn,html.msafari #moreBtn{display:none !important}
+html.msafari .day{top:var(--barTop)}
+html.msafari .appTop{display:block;position:fixed;top:0;left:0;right:0;height:var(--barTop);background:var(--bg);z-index:50}   /* plain strip behind the clock once the title bar has scrolled away */
 html.app{--barH:0px}
 html.app .bar{display:none}
 /* solid strip behind the clock / battery. iPhone (iOS 26) blurs the top of a home-screen app unless a fixed or sticky box with a
@@ -1015,22 +1027,22 @@ html.app .bar{display:none}
 .appTop{display:none}
 html.app .appTop{display:block;position:fixed;top:0;left:0;right:0;height:calc(var(--barTop) + 12px);background:var(--bg);z-index:50}
 html.app .day{top:calc(var(--barTop) + 12px)}
-html.app #entryUi{display:block}
-html.app body:not(.can-enter) #eFab{display:none}
-html.app .efab-zone{right:var(--cornerGap,24px);bottom:var(--cornerGap,24px)}
+html:is(.app,.msafari) #entryUi{display:block}
+html:is(.app,.msafari) body:not(.can-enter) #eFab{display:none}
+html:is(.app,.msafari) .efab-zone{right:var(--cornerGap,24px);bottom:var(--cornerGap,24px)}
 /* ⋯: quiet - the see-through glass of the History / Now switch (.nowsw .sg), dark dots; same 60 px size as the + (2026-10-08) */
-html.app .emore{display:grid;pointer-events:auto;width:var(--moreD,60px);height:var(--moreD,60px);border-radius:50%;border:0;place-items:center;cursor:pointer;color:var(--ink);
+html:is(.app,.msafari) .emore{display:grid;pointer-events:auto;width:var(--moreD,60px);height:var(--moreD,60px);border-radius:50%;border:0;place-items:center;cursor:pointer;color:var(--ink);
   background:color-mix(in srgb,var(--card) 34%,transparent);-webkit-backdrop-filter:blur(18px) saturate(190%);backdrop-filter:blur(18px) saturate(190%);
   box-shadow:0 6px 20px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 1px color-mix(in srgb,var(--card) 55%,transparent),0 0 0 .5px color-mix(in srgb,var(--ink) 12%,transparent)}
-html.app .emore svg{width:26px;height:26px}
-html.app #eMore{position:fixed;left:var(--cornerGap,24px);bottom:calc(var(--cornerGap,24px) + (60px - var(--moreD,60px)) / 2)}   /* centered on the + (60) */            /* ⋯ in the left corner, in line with the switch and the + (2026-10-08) */
-html.app #mActs{position:fixed;left:var(--cornerGap,24px);bottom:calc(var(--cornerGap,24px) + 72px);align-items:flex-start}
-html.app #mActs .eact{flex-direction:row-reverse;padding:0 20px 0 8px}   /* on the left: icon first, by the ⋯ */
-html.app #mActs .mcap{text-align:left}
-html.app #menuDlg{top:auto;bottom:calc(var(--cornerGap,24px) + 72px);left:var(--cornerGap,24px);right:auto}   /* just above the ⋯ */
+html:is(.app,.msafari) .emore svg{width:26px;height:26px}
+html:is(.app,.msafari) #eMore{position:fixed;left:var(--cornerGap,24px);bottom:calc(var(--cornerGap,24px) + (60px - var(--moreD,60px)) / 2)}   /* centered on the + (60) */            /* ⋯ in the left corner, in line with the switch and the + (2026-10-08) */
+html:is(.app,.msafari) #mActs{position:fixed;left:var(--cornerGap,24px);bottom:calc(var(--cornerGap,24px) + 72px);align-items:flex-start}
+html:is(.app,.msafari) #mActs .eact{flex-direction:row-reverse;padding:0 20px 0 8px}   /* on the left: icon first, by the ⋯ */
+html:is(.app,.msafari) #mActs .mcap{text-align:left}
+html:is(.app,.msafari) #menuDlg{top:auto;bottom:calc(var(--cornerGap,24px) + 72px);left:var(--cornerGap,24px);right:auto}   /* just above the ⋯ */
 body.can-enter #mnPrices{display:none !important}   /* those with a + find Prices & stock there; everyone else keeps it in the ⋯ menu */
 .mrow.appOnly{display:none}
-html.app .mrow.appOnly{display:flex}
+html:is(.app,.msafari) .mrow.appOnly{display:flex}
 /* wide screens: just outside the right edge of the 900 px column, where there is spare room */
 @media (min-width:1100px){ .efab-zone{right:calc(50vw - 526px);bottom:24px} }
 #entryUi.open .efab svg{transform:rotate(45deg)}
@@ -1043,7 +1055,7 @@ html.app .mrow.appOnly{display:flex}
 .eact.hold{opacity:0!important;transition:none}
 /* home-screen app: the ⋯ opens the menu as bubbles, like the + (2026-10-07). Built from the menu's rows (buildMenuBubbles). */
 .macts{display:none}
-html.app #entryUi.menu .macts{display:flex}
+html:is(.app,.msafari) #entryUi.menu .macts{display:flex}
 #entryUi.menu .escrim{background:var(--escrim);visibility:visible;pointer-events:auto;transition:background-color .18s}
 #entryUi.menu .macts .eact{opacity:1;transform:none;pointer-events:auto;animation:mpop .2s cubic-bezier(.2,.8,.2,1) both}
 @keyframes mpop{from{opacity:0;transform:translateY(12px) scale(.96)}}
@@ -1554,11 +1566,13 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .obox .summary .spend{font-size:13.5px}
 /* room at the bottom so the floating ⋯ / + never cover the last line */
 body.can-enter #legend{margin-bottom:84px}
-html.app #legend{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
+html:is(.app,.msafari) #legend{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 
 /* ---- Right now view (2026-10-08): switch History / Right now (Board+), summary with CSI, one tile per test */
 .nowsw{position:fixed;left:50%;transform:translateX(-50%);bottom:max(12px,calc(env(safe-area-inset-bottom,0px) - 6px));height:60px;align-items:center;z-index:55;display:flex}   /* same bottom and height as the + : centers line up */
-html.app .nowsw{bottom:var(--cornerGap,24px)}
+html:is(.app,.msafari) .nowsw{bottom:var(--cornerGap,24px)}
+html.msafari .nowsw,html.msafari .efab-zone,html.msafari #eMore{bottom:var(--sbot)}   /* iPhone Safari: low, by the address bar */
+html.msafari #mActs,html.msafari #menuDlg{bottom:calc(var(--sbot) + 72px)}
 @media (min-width:1100px){ .nowsw{bottom:24px} }
 .nowsw.priv{display:flex}
 .nowsw .sg{display:inline-flex;border-radius:999px;padding:4px;gap:2px;background:color-mix(in srgb,var(--card) 34%,transparent);-webkit-backdrop-filter:blur(18px) saturate(190%);backdrop-filter:blur(18px) saturate(190%);box-shadow:0 6px 20px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 1px color-mix(in srgb,var(--card) 55%,transparent),0 0 0 .5px color-mix(in srgb,var(--ink) 12%,transparent)}   /* glassy: mostly see-through, the chosen side solid */
@@ -1570,7 +1584,7 @@ body.v-now.unlocked:is(.lvl-board,.lvl-manager) :is(#up,#histRow,#opts,#list,#le
 #now{display:none !important;flex-direction:column;gap:10px}
 body.v-now.unlocked:is(.lvl-board,.lvl-manager) #now{display:flex !important}
 #now{margin-bottom:84px}
-html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
+html:is(.app,.msafari) body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .nsum{background:var(--panel);border-radius:18px;padding:12px 12px 14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:start}
 /* heading above the card, like "Coming up" / "History" (2026-10-14) */
 #now .nhd{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0 2px -4px 2px}
@@ -1591,6 +1605,9 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ncsi svg{margin-top:3px}
 /* CSI box (2026-10-14): never taller than the tags + sentence beside it (it stretches to their height) */
 .nsum .ncsi{align-self:stretch;min-height:0}
+#now{position:relative}
+.ncsi.joined{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.ncsibr{position:absolute;background:var(--card);z-index:1;pointer-events:none}   /* the bridge from the CSI box to its open tile */
 .ncsi{position:relative;padding:6px 6px 26px;gap:1px}
 .ncsi .lb{font-size:13px}
 .ncsi .nn.g{color:var(--okInk)} .ncsi .nn.y{color:color-mix(in srgb,var(--yellow) 55%,var(--ink))} .ncsi .nn.r{color:var(--red)} .ncsi .nn.p{color:var(--purple)}
@@ -1603,6 +1620,7 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ncsi .nbarw .ntick{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 1px var(--card)}   /* a little taller than the bar */
 .ntile{background:var(--card);border-radius:18px;padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px;position:relative}
 .nchart .nhit{fill:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nchart .ntens{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 4;opacity:.7}
 .nchart .nzone{opacity:.55}.nchart .nzone.z-green{fill:var(--okT)}.nchart .nzone.z-yellow{fill:var(--yTint)}.nchart .nzone.z-red{fill:var(--rTint)}.nchart .nzone.z-purple{fill:var(--pTint)}
 .nchart .nzw{font-size:10.5px;font-weight:600}.nchart .nzw.z-green{fill:var(--okInk)}.nchart .nzw.z-yellow{fill:color-mix(in srgb,var(--yellow) 55%,var(--ink))}.nchart .nzw.z-red{fill:var(--red)}.nchart .nzw.z-purple{fill:var(--purple)}
 .nscroll,.nfix{touch-action:pan-x pan-y}   /* two-finger pinch is ours (nowZoom), not the page's */
@@ -1634,6 +1652,7 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ndrop{display:none}
 .ntile.open .ndrop{display:inline}
 .nscroll .nchart{max-width:none}
+.ntile .nscroll,.ntile .nfix{margin-right:-12px}   /* = NOW_REACH */
 .nscroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -2px}
 .nscroll::-webkit-scrollbar{display:none}
 .nchart .ntagt{font-size:10.5px;font-weight:650;fill:var(--ink2)}
@@ -1645,6 +1664,7 @@ html.app body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) + 150px)}
 .ndet h4{margin:0 0 5px;font-size:12px;font-weight:650;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
 .nhow{display:grid;grid-template-columns:1fr auto;gap:3px 12px;font-size:14px;font-variant-numeric:tabular-nums}
 .nhow span:nth-child(even){text-align:right;font-weight:600}
+.nhow span:nth-child(1),.nhow span:nth-child(2){font-weight:700;color:var(--ink)}   /* the starting point (the test) in bold (2026-10-16) */
 .nhow .tot{border-top:1px solid var(--line);padding-top:4px;margin-top:2px;font-weight:700}
 .nsure{margin:-6px 0 0;font-size:12px;color:var(--muted)}
 .ntodo{background:var(--soft);border-radius:12px;padding:9px 12px;font-size:14px;line-height:1.45}
@@ -4332,6 +4352,17 @@ function nowTipText(k, p){
     .map(function(f){ return f[1] ? f[1] + ' ' + nowFmt(f[0], p.t[f[0]]) : Math.round(p.t[f[0]]) + '°'; }).join(', ');
   return (NOW_TIP_NAME[k] || k) + ' ' + nowFmt(k, p.v) + (k === 'tempF' ? '°' : '') + ' · ' + when + (p.by ? ' · ' + firstName(p.by) : '') + (from ? ' · ' + from : '');
 }
+var NOW_REACH = 12;   // px a chart reaches into its tile's right padding, so the side words sit near the edge (2026-10-16)
+/** The room at the right of a chart (2026-10-16): just what its words need, the same open or closed so nothing moves -
+ *  CSI's long words its own; "too high" / "too low" only when a reading goes past the yellow zones; else high / good / low. */
+function nowPadR(o){
+  if (o.k === 'csi') return 62;
+  if (!o.rname) return 36;
+  var lo = Infinity, hi = -Infinity;
+  bandsFor(o.rname).forEach(function(b){ if (b.color === 'red') return; if (b.min != null && isFinite(b.min)) lo = Math.min(lo, b.min); if (b.max != null && isFinite(b.max)) hi = Math.max(hi, b.max); });
+  var past = nowTests(o.k).some(function(t){ return t[o.k] < lo || t[o.k] > hi; });
+  return past ? 52 : 36;
+}
 /** Computers (2026-10-14): taller Now charts, for more detail. */
 function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-width:900px)').matches); }
 /* Charts (2026-10-15, Camelo: the CSI chart "is not very informative"): the up-down scale fits what is on screen (o.view, the
@@ -4340,11 +4371,19 @@ function NOW_DESK(){ return !!(window.matchMedia && window.matchMedia('(min-widt
 var nowZoom = {}, nowCharts = {}, nowWin = {};
 var NOW_ZOOM_MIN = {fc: 1, ph: 1, cc: 1, ta: 4, ch: 4, cya: 4, csi: 3, tempF: 2};
 var NOW_ZONE_WORD = {red: 'corrosive', yellow: 'low', green: 'balanced', purple: 'scaling'};
+/** Words for a zone of reading rname, by where it sits against the green band: too low / low / good / high / too high. */
+function nowZoneWord(rname, z){
+  if (rname === 'CSI') return NOW_ZONE_WORD[z.c];
+  if (z.c === 'green') return 'good';
+  var g = nowGreen(rname), above = g && isFinite(g.hi) && z.a >= g.hi - 1e-9;
+  return z.c === 'red' ? (above ? 'too high' : 'too low') : (above ? 'high' : 'low');
+}
 function nowChart(o){
   var ck = o.k + (o.big ? '+' : '');
   nowCharts[ck] = o;
   if (nowZoom[ck]) o = Object.assign({}, o, {span: nowZoom[ck], back: Math.min(o.back || nowZoom[ck], Math.max(o.span, nowZoom[ck] * 30))});   // zoomed in: up to 30 screens back, so it stays quick
-  var Wv = Math.max(240, nowW - 32), padL = 2, padR = o.zones ? 62 : 30, top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
+  // one right margin for every chart (room for the zone words), so opening a tile doesn't move Now or the end line (2026-10-16)
+  var Wv = Math.max(240, nowW - 32 + NOW_REACH), padL = 2, padR = nowPadR(o), top = o.ahead ? 18 : 8, bot = 22, H = (o.tall ? (NOW_DESK() ? 220 : 170) : o.big ? (NOW_DESK() ? 170 : o.taller ? 150 : 120) : o.taller ? (NOW_DESK() ? 160 : 120) : (NOW_DESK() ? 132 : 92)) + top - 8, ih = H - top - bot;
   var now = Date.now(), x1 = now + (o.ahead || 0) * HR, x0 = now - Math.max(o.span, o.back || 0) * DAYMS;
   var pxMs = (Wv - padL - padR) / (x1 - (now - o.span * DAYMS)), iw = pxMs * (x1 - x0), W = Math.round(padL + iw + padR);
   // the scale: what is in the window on screen (nowWin[ck] after a swipe; else the newest span), a little either side
@@ -4389,8 +4428,15 @@ function nowChart(o){
       if (!z.c) return;
       s += '<rect x="' + padL + '" y="' + Y(z.b).toFixed(1) + '" width="' + iw + '" height="' + (Y(z.a) - Y(z.b)).toFixed(1) + '" class="nzone z-' + z.c + '"/>';
       var zy = (Y(z.a) + Y(z.b)) / 2;
-      if (Y(z.a) - Y(z.b) >= 11) s += '<text class="nzw z-' + z.c + '" x="' + (W - padR + 6) + '" y="' + (zy + 3.5).toFixed(1) + '">' + NOW_ZONE_WORD[z.c] + '</text>';
+      // a word where it fits: red ("too high") only when this chart made room for it (a reading went that far)
+      if (Y(z.a) - Y(z.b) >= 11 && !(z.c === 'red' && o.k !== 'csi' && padR < 50)) s += '<text class="nzw z-' + z.c + '" x="' + (W - padR + 6) + '" y="' + (zy + 3.5).toFixed(1) + '">' + nowZoneWord(o.zones, z) + '</text>';
     });
+  }
+  if (o.tens) {                                                  // water temperature (2026-10-16): a dashed line at every 10°, labeled
+    for (var tv = Math.ceil(lo / 10) * 10; tv <= hi; tv += 10) {
+      s += '<line x1="' + padL + '" x2="' + (padL + iw).toFixed(1) + '" y1="' + Y(tv).toFixed(1) + '" y2="' + Y(tv).toFixed(1) + '" class="ntens"/>';
+      s += '<text x="' + (W - padR + 5) + '" y="' + (Y(tv) + 4).toFixed(1) + '">' + tv + '°</text>';
+    }
   }
   if (o.band && !o.zones && isFinite(o.band.lo) && isFinite(o.band.hi)) {
     var bl = Math.max(lo, o.band.lo), bh = Math.min(hi, o.band.hi);
@@ -4413,14 +4459,24 @@ function nowChart(o){
   if (o.ahead) {
     var nx = X(now), ex = X(x1), endT = nowClock(Math.round(x1 / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(now).split(' ')[0] ? '' : d + ' '; });
     s += '<line x1="' + nx.toFixed(1) + '" x2="' + nx.toFixed(1) + '" y1="' + (top - 4) + '" y2="' + (top + ih) + '" class="nnow"/>';
-    s += '<text class="ntagt" x="' + (nx - 4).toFixed(1) + '" y="' + (top - 6) + '" text-anchor="end">Now</text>';
+    var endW = endT.length * 6.2, endL = Math.min(W - 1 - endW / 2, ex) - endW / 2;
+    s += nx + 13 + 4 < endL ? '<text class="ntagt" x="' + nx.toFixed(1) + '" y="' + (top - 6) + '" text-anchor="middle">Now</text>'   // over its line (2026-10-16)
+      : '<text class="ntagt" x="' + (nx - 4).toFixed(1) + '" y="' + (top - 6) + '" text-anchor="end">Now</text>';
     s += '<line x1="' + ex.toFixed(1) + '" x2="' + ex.toFixed(1) + '" y1="' + (top - 4) + '" y2="' + (top + ih) + '" class="nnow"/>';
-    s += '<text class="ntagt nend" x="' + (W - 1) + '" y="' + (top - 6) + '" text-anchor="end">' + esc(endT) + '</text>';
+    // the end time centered over its line (2026-10-16), kept inside the chart; Now's label stays left of its line
+    var ew = endT.length * 6.2, exl = Math.min(W - 1 - ew / 2, ex);
+    s += '<text class="ntagt nend" x="' + exl.toFixed(1) + '" y="' + (top - 6) + '" text-anchor="middle">' + esc(endT) + '</text>';
   }
   // feeders running
+  var fpat = 'fp' + ck.replace('+', 'b');
+  if ((o.feeds || []).some(function(f){ return f[1] > now; }))
+    s += '<defs><pattern id="' + fpat + '" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="' + col + '" opacity=".35"/><rect width="2.5" height="5" fill="' + col + '"/></pattern></defs>';
   (o.feeds || []).forEach(function(f){
-    var a = Math.max(x0, f[0]), b = Math.min(now, f[1]); if (b <= a) return;
-    s += '<rect x="' + X(a).toFixed(1) + '" y="' + (top + ih + 2) + '" width="' + (X(b) - X(a)).toFixed(1) + '" height="3" rx="1.5" fill="' + col + '" opacity=".35"/>';
+    var a = Math.max(x0, f[0]), b = Math.min(now, f[1]);
+    if (b > a) s += '<rect x="' + X(a).toFixed(1) + '" y="' + (top + ih + 2) + '" width="' + (X(b) - X(a)).toFixed(1) + '" height="3" rx="1.5" fill="' + col + '" opacity=".35"/>';
+    // still to come (2026-10-16): the same bar, striped, on to when the feeder should be empty (or the chart's end)
+    var fa = Math.max(x0, now, f[0]), fb = Math.min(x1, f[1]);
+    if (fb > fa) s += '<rect x="' + X(fa).toFixed(1) + '" y="' + (top + ih + 2) + '" width="' + (X(fb) - X(fa)).toFixed(1) + '" height="3" rx="1.5" fill="url(#' + fpat + ')" opacity=".35"/>';   // the same bar as before Now, striped
   });
   // the modeled line (water temperature) or the tests' line
   s += '<g clip-path="url(#' + cid + ')">';
@@ -4539,8 +4595,9 @@ function nowTile(M, def){
   var pts = nowTests(k).map(function(t){ return {ms: t.ms, v: t[k], by: t.by}; });
   var f = k === 'ta' ? 'ta' : k === 'ph' ? 'ph' : k;
   var chartO = {k: k, name: def[1], span: NOW_SPAN[k], band: band, pts: pts, est: est ? (r.run ? r.run.path : r.path) : null, nowV: est ? r.v : null, unsure: unsure,
-    adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined, past: r.past};
+    rname: rname, adds: k === 'cc' ? [] : nowAdds(M.cs, f), feeds: k === 'cc' ? [] : nowFeeds(M.cs, f), floor: 0, back: NOW_BACK[k], minHi: k === 'cc' ? 1 : undefined, past: r.past};
   if (k === 'ph') delete chartO.floor;
+
   var foot = '', how = '', todo = '', extra = '';
   var tested = 'Tested ' + nowFmt(k, r.last[k]) + '<span data-d> · ' + esc(nowWhen(r.last)) + '</span>';
   if (k === 'fc') {
@@ -4601,8 +4658,16 @@ function nowTile(M, def){
   }
   if (unsure) todo = 'It’s been ' + (age < 72 ? Math.round(age) + ' hours' : Math.round(age / 24) + ' days') + ' since the last test, so this is a rough guess. <b>Test ' + rname + '</b> to be sure.' + (todo ? '<br>' + todo : '');
   var due = nowDue(rname, r.last);
-  var big = Object.assign({}, chartO, {span: NOW_SPAN_BIG[k], big: true, fut: null, ahead: 0, back: NOW_BACK_BIG[k]});
-  var det = '<div class="ndet">' + '<div><h4>Last ' + (NOW_SPAN_BIG[k] >= 60 ? Math.round(NOW_SPAN_BIG[k] / 30) + ' months' : NOW_SPAN_BIG[k] + ' days') + '</h4>' + (open ? nowChart(big) : '') + '</div>' +
+  // an opened tile's own chart becomes the detailed one (2026-10-16, Camelo: no second chart): the Ranges tab's colors as
+  // bands with words at the right, a little taller, the whole range shown (every band that isn't red + 8%; a reading past it
+  // widens it). Closed: the quick look (green band, scale fitted to the readings). More days: pinch.
+  if (open || NOW_DESK()) {                                     // computers: always the full chart; a click only shows the details
+    chartO.zones = rname; chartO.taller = true;
+    var nlo = Infinity, nhi = -Infinity;
+    bandsFor(rname).forEach(function(b){ if (b.color === 'red') return; if (b.min != null && isFinite(b.min)) nlo = Math.min(nlo, b.min); if (b.max != null && isFinite(b.max)) nhi = Math.max(nhi, b.max); });
+    if (isFinite(nlo) && isFinite(nhi) && nhi > nlo) { var pd = (nhi - nlo) * 0.08; chartO.fix = [Math.max(0, nlo - pd), nhi + pd]; }
+  }
+  var det = '<div class="ndet">' +
     '<div><h4>How we got ' + (est ? '≈' : '') + nowFmt(k, r.v) + '</h4>' + how + '</div>' +
     '<p class="nsure">Estimates stay good for about ' + (NOW_SURE_H[k] < 72 ? NOW_SURE_H[k] / 24 + ' days' : NOW_SURE_H[k] / 168 + ' weeks') + ' after a test.</p>' +
     (todo ? '<div class="ntodo">' + todo + '</div>' : '') + extra + nowStats(k, rname, NOW_SPAN[k] > 8 ? 42 : 30) + '</div>';
@@ -4629,7 +4694,7 @@ function nowTempTile(M){
   if (!r) return '<div class="ntile" style="--k:var(--k-tempF)"><div class="ntop"><span class="nnm"><b>Water temperature</b><span class="ntg">Weather not loaded yet</span></span></div></div>';
   var pts = nowTests('tempF').map(function(t){ return {ms: t.ms, v: t.tempF, by: t.by}; });
   var tg = r.last ? 'Tested ' + Math.round(r.last.tempF) + '°<span data-d> · ' + esc(nowWhen(r.last)) + '</span>' : 'No temperature tests yet';
-  var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF};
+  var co = {k: k, name: 'Water temperature', span: NOW_SPAN.tempF, pts: pts, model: r.path, nowV: r.v, ahead: 48, back: NOW_BACK.tempF, tens: true};
   var foot = r.noWx ? (nowWxBusy || !nowWx ? 'Loading the weather…' : 'Weather didn’t load, so this is the last test') : isNum(r.tomorrow) ? 'Tomorrow<span data-d> afternoon</span> ≈' + Math.round(r.tomorrow) + '°' : '';
   var acc = r.m && isNum(r.m.ahead) ? 'Forecast usually within ±' + Math.max(1, Math.round(r.m.ahead)) + '°' : r.m ? 'Rough until there are a few more temperature tests' : '';
   var an = r.m && r.m.anchor, wxd = an ? r.v - an.v : 0;
@@ -4637,8 +4702,8 @@ function nowTempTile(M){
     an ? ['Last test<span data-d> (' + esc(nowWhen(r.last)) + ')</span>', Math.round(an.v) + '°'] : ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
     an ? ['Weather since then (water lags a few days)', (wxd >= 0 ? '+' : '−') + Math.abs(wxd).toFixed(1) + '°'] : ['No temperature tests to learn from yet', '']],
     ['Now', '≈' + Math.round(r.v) + '°']) : '';
-  var big = Object.assign({}, co, {span: NOW_SPAN_BIG.tempF, big: true, ahead: 0, back: NOW_BACK_BIG.tempF});
-  var det = '<div class="ndet"><div><h4>Last 2 months</h4>' + (open ? nowChart(big) : '') + '</div>' +
+  if (open || NOW_DESK()) co.taller = true;                                    // opened: the same chart, a little taller (no second chart, 2026-10-16)
+  var det = '<div class="ndet">' +
     (how ? '<div><h4>How we got ≈' + Math.round(r.v) + '°</h4>' + how + '</div>' : '') +
     '<p class="nsure">Unheated pool: it follows the weather, a few days behind. Each temperature test makes the estimate better. Warmer water uses chlorine faster and pushes CSI up.</p></div>';
   return '<div class="ntile' + (open ? ' open' : '') + '" data-nk="tempF" style="--k:var(--k-tempF)">' +
@@ -4655,9 +4720,35 @@ function nowCsiDetail(M){
   var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, soft: true, pts: pts,   // tall: 170 px (220 on computers)
     est: [{ms: M.now, v: r.v}], nowV: r.v, back: NOW_BACK.csi, fut: r.fut, ahead: r.fut && r.fut.length ? 48 : 0};
   var ph78 = M.r.ph ? nowCsi(7.8, M.r.ta.v, M.r.ch.v, M.r.cya.v, r.salt, r.bor, M.r.tempF.v) : null;
-  return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">Worked out from the estimates below</span></span></div>' +
-    nowChart(co) + '<div class="ndet" style="display:flex">' +
-    nowHow([['pH ≈' + g('ph') + ' · TA ≈' + g('ta') + ' · CH ≈' + g('ch'), ''], ['CYA ≈' + g('cya') + ' · water ≈' + g('tempF') + '° · salt ' + Math.round(r.salt), '']], ['CSI now', '≈' + nowFmt('csi', r.v)]) +
+  // How we got (2026-10-16, like the other tiles): the last test's CSI, then what moved it since - each reading swapped from
+  // what it was at that test (its own value, or the latest before it) to its estimate now, one at a time, pH first
+  var L = r.last, how = '', sub = 'Worked out from the estimates below';
+  if (L) {
+    var KS = [['ph', 'pH'], ['tempF', 'Water'], ['ta', 'TA'], ['ch', 'CH'], ['cya', 'CYA']], cur = {}, ok = true;
+    KS.forEach(function(x){ var t0 = isNum(L[x[0]]) ? L : nowLastBefore(x[0], L.ms, 45 * DAYMS); cur[x[0]] = t0 ? t0[x[0]] : (M.r[x[0]] ? M.r[x[0]].v : null); if (!isNum(cur[x[0]])) ok = false; });
+    var calc = function(){ return nowCsi(cur.ph, cur.ta, cur.ch, cur.cya, r.salt, r.bor, cur.tempF); };
+    var c0 = ok ? calc() : null;
+    if (c0 !== null) {
+      var start = isNum(L.csi) ? L.csi : c0, sum = start;            // the test's own CSI, so it matches the subtitle
+      var rows = [['Last test ' + esc(nowWhen(L)), nowFmt('csi', start)]];
+      KS.forEach(function(x){
+        var nv = M.r[x[0]] ? M.r[x[0]].v : null; if (!isNum(nv)) return;
+        var was = cur[x[0]], before = calc(); cur[x[0]] = nv; var d = calc() - before;
+        if (Math.abs(d) < 0.005) return;
+        sum += d;
+        var fmtv = function(v){ return x[0] === 'tempF' ? Math.round(v) + '°' : nowFmt(x[0], v); };
+        rows.push([x[1] + ' ' + fmtv(was) + ' → ≈' + fmtv(nv), (d < 0 ? '−' : '+') + Math.abs(d).toFixed(2)]);
+      });
+      var rest = r.v - sum;                                         // the test's CSI used readings from other days: what's left
+      if (Math.abs(rest) >= 0.01) rows.push(['Other (readings borrowed for the test)', (rest < 0 ? '−' : '+') + Math.abs(rest).toFixed(2)]);
+      if (rows.length === 1) rows.push(['Nothing much has moved since', '']);
+      how = '<div><h4>How we got ≈' + nowFmt('csi', r.v) + '</h4>' + nowHow(rows, ['Now', '≈' + nowFmt('csi', r.v)]) + '</div>';
+      sub = 'Last test ' + nowFmt('csi', L.csi) + ' · ' + nowWhen(L);
+    }
+  }
+  return '<div class="ntile open ncsid" style="--k:var(--k-csi)"><div class="ntop"><span class="nnm"><b>Balance (CSI)</b><span class="ntg">' + esc(sub) + '</span></span></div>' +
+    nowChart(co) + '<div class="ndet" style="display:flex">' + how +
+    '<p class="nsure">Estimates now: pH ≈' + g('ph') + ' · TA ≈' + g('ta') + ' · CH ≈' + g('ch') + ' · CYA ≈' + g('cya') + ' · water ≈' + g('tempF') + '° · salt ' + Math.round(r.salt) + '</p>' +
     '<div class="ntodo">Between −0.1 and 0.3 the water neither eats plaster nor leaves scale. pH moves it most' + (ph78 !== null ? ': at pH 7.8 it would be ' + nowFmt('csi', ph78) : '') + '.</div>' +
     nowStats('csi', 'CSI', 42) + '</div></div>';
 }
@@ -4750,9 +4841,30 @@ function renderNow(){
     '<span><svg width="10" height="10" aria-hidden="true"><path d="M5 1 L9 8 L1 8 Z" fill="currentColor"/></svg>chemical added</span>' +
     '<span><svg width="14" height="10" aria-hidden="true"><rect x="0" y="6" width="14" height="4" rx="1" fill="currentColor" opacity=".35"/></svg>feeder running</span></div>';
   nowWin = {};                                                  // every chart opens at today again, fitted to that
+  setTimeout(nowCsiBridge, 0);
   [].forEach.call(box.querySelectorAll('.nscroll'), function(el){ el.scrollLeft = el.scrollWidth; });
   nowFit(box);
 }
+/** The open CSI tile joined to the CSI box (2026-10-16, Camelo's sketch): a white bridge from the box's bottom down to the tile,
+ *  curving out into the tile's top edge; the box's bottom corners go square. Redrawn after each render and on resize. */
+function nowCsiBridge(){
+  var box = $('now'); if (!box) return;
+  [].forEach.call(box.querySelectorAll('.ncsibr'), function(e){ e.remove(); });
+  var btn = $('nowCsiBtn'), tile = box.querySelector('.ncsid');
+  if (btn) btn.classList.toggle('joined', !!tile);
+  if (!btn || !tile || !box.offsetParent) return;
+  // the tile's place from its layout (offsetTop), not its box on screen, which is mid-animation while it grows
+  var b = box.getBoundingClientRect(), r = btn.getBoundingClientRect(), R = 14, tTop = b.top + tile.offsetTop, t = {top: tTop};
+  var add = function(css){ var d = document.createElement('div'); d.className = 'ncsibr'; d.style.cssText = css; box.appendChild(d); return d; };
+  add('left:' + (r.left - b.left) + 'px;top:' + (r.bottom - b.top - 1) + 'px;width:' + r.width + 'px;height:' + (t.top - r.bottom + 2) + 'px');
+  add('left:' + (r.left - b.left - R) + 'px;top:' + (t.top - b.top - R + 1) + 'px;width:' + R + 'px;height:' + R + 'px;background:radial-gradient(circle at 0 0,transparent ' + R + 'px,var(--card) ' + (R + 0.5) + 'px)');
+  // on the right the box sits inside the tile's rounded corner: an S-curve - out from the box with half the gap, then the
+  // tile's corner rounded with the other half - so it flows like the left side (2026-10-16, no square corner)
+  var gap = b.left + tile.offsetLeft + tile.offsetWidth - r.right, tight = gap < R + 24, Rr = tight ? Math.max(0, gap / 2) : R;
+  tile.style.borderTopRightRadius = tight ? Math.max(0, gap / 2) + 'px' : '';
+  if (Rr >= 2) add('left:' + (r.right - b.left) + 'px;top:' + (t.top - b.top - Rr + 1) + 'px;width:' + Rr + 'px;height:' + Rr + 'px;background:radial-gradient(circle at 100% 0,transparent ' + Rr + 'px,var(--card) ' + (Rr + 0.5) + 'px)');
+}
+window.addEventListener('resize', function(){ setTimeout(nowCsiBridge, 200); });
 /** Redraw one chart (after a swipe stops or a pinch): keepMs stays at screen x atX when given, else the scroll stays. */
 function nowRedraw(ck, keepMs, atX){
   var el = document.querySelector('#now [data-ck="' + ck + '"]'), o = nowCharts[ck]; if (!el || !o) return;
@@ -4846,7 +4958,20 @@ function setNowView(on){
     var td = e.target.closest('[data-ntd]');
     if (td) { nowFcTarget = Math.max(1, Math.min(10, nowFcTarget + Number(td.getAttribute('data-ntd')))); try { localStorage.setItem('nowFcTarget', nowFcTarget); } catch(x){} renderNow(); return; }
     if (e.target.closest('[data-ntgt]')) { nowEditT = !nowEditT; renderNow(); return; }
-    if (e.target.closest('#nowCsiBtn')) { nowOpen.csi = !nowOpen.csi; renderNow(); return; }
+    if (e.target.closest('#nowCsiBtn')) {
+      var from = e.target.closest('#nowCsiBtn').getBoundingClientRect(), opening = !nowOpen.csi;
+      nowOpen.csi = !nowOpen.csi; renderNow();
+      var tile = opening && document.querySelector('#now .ncsid');
+      // the CSI box grows into the big tile (2026-10-16): the tile starts at the box's size and place and opens out
+      if (tile && tile.animate && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        var to = tile.getBoundingClientRect();
+        tile.animate([{transformOrigin: '0 0', transform: 'translate(' + (from.left - to.left) + 'px,' + (from.top - to.top) + 'px) scale(' + (from.width / to.width) + ',' + (from.height / to.height) + ')', opacity: .6},
+          {transformOrigin: '0 0', transform: 'none', opacity: 1}], {duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)'});
+        [].forEach.call(tile.children, function(ch){ ch.animate([{opacity: 0}, {opacity: 0, offset: .45}, {opacity: 1}], {duration: 360, easing: 'ease-out'}); });
+        setTimeout(function(){ [].forEach.call(document.querySelectorAll('.ncsibr'), function(d){ d.animate([{opacity: 0}, {opacity: 1}], {duration: 150}); }); }, 0);
+      }
+      return;
+    }
     if (e.target.closest('[data-nwch]')) { nowEditW = !nowEditW; nowWDraft = nowWellCh(); nowWMsg = ''; renderNow(); return; }
     var wd = e.target.closest('[data-nwd]');
     if (wd) { nowWDraft = Math.max(10, Math.min(1500, nowWDraft + Number(wd.getAttribute('data-nwd')))); renderNow(); return; }
