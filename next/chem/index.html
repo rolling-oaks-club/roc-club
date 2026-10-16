@@ -4458,6 +4458,7 @@ function nowChart(o){
     if (Math.abs(xx - lastLx) > 38 && xx > 14) { s += '<text x="' + xx.toFixed(1) + '" y="' + (H - 5) + '" text-anchor="middle">' + lab + '</text>'; lastLx = xx; }
   }
   // the days ahead (2026-10-16, Camelo): dashed day lines past Now, labeled where they fit
+  var pT = today.split('-'); lastLx = X(Date.UTC(+pT[0], +pT[1] - 1, +pT[2], 5));   // spacing counted from Today's label
   for (var d2 = 1; d2 <= 7; d2++) {
     var dayF = addDays(today, d2), pF = dayF.split('-'), msF = Date.UTC(+pF[0], +pF[1] - 1, +pF[2], 5);
     if (msF >= x1) break;
