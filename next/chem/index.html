@@ -694,7 +694,7 @@ dialog .padj input[type=number]{width:80px;min-height:34px;font-size:16px;paddin
 @keyframes impspin{to{transform:rotate(360deg)}}
 #refreshBtn.spin svg{animation:impspin .8s linear infinite}
 /* pull to refresh (2026-10-14): the round arrow that comes down from the top */
-html{overscroll-behavior-y:none}
+html{overscroll-behavior-y:none;touch-action:manipulation}   /* manipulation (2026-10-16): no double-tap zoom, so a tap counts at once (two quick taps zoomed the page in Safari) */
 .ptr{position:fixed;left:50%;top:calc(var(--barH,0px) + var(--barTop,0px) + 8px);z-index:60;width:40px;height:40px;border-radius:50%;background:var(--card);color:var(--muted);
   display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);transform:translate(-50%,-50px);opacity:0;pointer-events:none}
 .ptr.go{color:var(--accent)}
