@@ -1015,7 +1015,8 @@ body.can-enter #entryUi{display:block}
 html.msafari{--cornerGap:16px;--sbot:4px}
 html.msafari .bar{position:absolute}
 html.msafari #refreshBtn,html.msafari #moreBtn{display:none !important}
-html.msafari .day{top:0}
+html.msafari .day{top:var(--barTop)}
+html.msafari .appTop{display:block;position:fixed;top:0;left:0;right:0;height:var(--barTop);background:var(--bg);z-index:50}   /* plain strip behind the clock once the title bar has scrolled away */
 html.app{--barH:0px}
 html.app .bar{display:none}
 /* solid strip behind the clock / battery. iPhone (iOS 26) blurs the top of a home-screen app unless a fixed or sticky box with a
