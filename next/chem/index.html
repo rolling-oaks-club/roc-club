@@ -4616,15 +4616,16 @@ function nowTile(M, def){
   }
   if (unsure) todo = 'It’s been ' + (age < 72 ? Math.round(age) + ' hours' : Math.round(age / 24) + ' days') + ' since the last test, so this is a rough guess. <b>Test ' + rname + '</b> to be sure.' + (todo ? '<br>' + todo : '');
   var due = nowDue(rname, r.last);
-  var big = Object.assign({}, chartO, {span: NOW_SPAN_BIG[k], big: true, fut: null, ahead: 0, back: NOW_BACK_BIG[k]});
-  // an opened tile = the detailed chart (2026-10-16, like the CSI chart): the Ranges tab's colors as bands with words at the
-  // right, a little taller, the whole range shown (every band that isn't red + 8%; a reading past it widens it). Closed tiles
-  // stay the quick look (green band, scale fitted to the readings).
-  big.zones = rname; big.taller = true;
-  var nlo = Infinity, nhi = -Infinity;
-  bandsFor(rname).forEach(function(b){ if (b.color === 'red') return; if (b.min != null && isFinite(b.min)) nlo = Math.min(nlo, b.min); if (b.max != null && isFinite(b.max)) nhi = Math.max(nhi, b.max); });
-  if (isFinite(nlo) && isFinite(nhi) && nhi > nlo) { var pd = (nhi - nlo) * 0.08; big.fix = [Math.max(0, nlo - pd), nhi + pd]; }
-  var det = '<div class="ndet">' + '<div><h4>Last ' + (NOW_SPAN_BIG[k] >= 60 ? Math.round(NOW_SPAN_BIG[k] / 30) + ' months' : NOW_SPAN_BIG[k] + ' days') + '</h4>' + (open ? nowChart(big) : '') + '</div>' +
+  // an opened tile's own chart becomes the detailed one (2026-10-16, Camelo: no second chart): the Ranges tab's colors as
+  // bands with words at the right, a little taller, the whole range shown (every band that isn't red + 8%; a reading past it
+  // widens it). Closed: the quick look (green band, scale fitted to the readings). More days: pinch.
+  if (open) {
+    chartO.zones = rname; chartO.taller = true;
+    var nlo = Infinity, nhi = -Infinity;
+    bandsFor(rname).forEach(function(b){ if (b.color === 'red') return; if (b.min != null && isFinite(b.min)) nlo = Math.min(nlo, b.min); if (b.max != null && isFinite(b.max)) nhi = Math.max(nhi, b.max); });
+    if (isFinite(nlo) && isFinite(nhi) && nhi > nlo) { var pd = (nhi - nlo) * 0.08; chartO.fix = [Math.max(0, nlo - pd), nhi + pd]; }
+  }
+  var det = '<div class="ndet">' +
     '<div><h4>How we got ' + (est ? '≈' : '') + nowFmt(k, r.v) + '</h4>' + how + '</div>' +
     '<p class="nsure">Estimates stay good for about ' + (NOW_SURE_H[k] < 72 ? NOW_SURE_H[k] / 24 + ' days' : NOW_SURE_H[k] / 168 + ' weeks') + ' after a test.</p>' +
     (todo ? '<div class="ntodo">' + todo + '</div>' : '') + extra + nowStats(k, rname, NOW_SPAN[k] > 8 ? 42 : 30) + '</div>';
@@ -4659,8 +4660,8 @@ function nowTempTile(M){
     an ? ['Last test<span data-d> (' + esc(nowWhen(r.last)) + ')</span>', Math.round(an.v) + '°'] : ['Water from air and sun (lags a few days)', Math.round(r.v - r.m.off) + '°'],
     an ? ['Weather since then (water lags a few days)', (wxd >= 0 ? '+' : '−') + Math.abs(wxd).toFixed(1) + '°'] : ['No temperature tests to learn from yet', '']],
     ['Now', '≈' + Math.round(r.v) + '°']) : '';
-  var big = Object.assign({}, co, {span: NOW_SPAN_BIG.tempF, big: true, ahead: 0, back: NOW_BACK_BIG.tempF, taller: true});
-  var det = '<div class="ndet"><div><h4>Last 2 months</h4>' + (open ? nowChart(big) : '') + '</div>' +
+  if (open) co.taller = true;                                    // opened: the same chart, a little taller (no second chart, 2026-10-16)
+  var det = '<div class="ndet">' +
     (how ? '<div><h4>How we got ≈' + Math.round(r.v) + '°</h4>' + how + '</div>' : '') +
     '<p class="nsure">Unheated pool: it follows the weather, a few days behind. Each temperature test makes the estimate better. Warmer water uses chlorine faster and pushes CSI up.</p></div>';
   return '<div class="ntile' + (open ? ' open' : '') + '" data-nk="tempF" style="--k:var(--k-tempF)">' +
