@@ -1624,6 +1624,10 @@ html:is(.app,.msafari) body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) 
 .nchart .nzone{opacity:.55}.nchart .nzone.z-green{fill:var(--okT)}.nchart .nzone.z-yellow{fill:var(--yTint)}.nchart .nzone.z-red{fill:var(--rTint)}.nchart .nzone.z-purple{fill:var(--pTint)}
 .nchart .nzw{font-size:10.5px;font-weight:600}.nchart .nzw.z-green{fill:var(--okInk)}.nchart .nzw.z-yellow{fill:color-mix(in srgb,var(--yellow) 55%,var(--ink))}.nchart .nzw.z-red{fill:var(--red)}.nchart .nzw.z-purple{fill:var(--purple)}
 .nscroll,.nfix{touch-action:pan-x pan-y}   /* two-finger pinch is ours (nowZoom), not the page's */
+.ntip.nfut{white-space:pre;text-align:left;line-height:1.45}
+.nchart .nfdot{fill:var(--card);stroke:var(--ink);stroke-width:1.6;pointer-events:none}
+.nchart .nfline{stroke:var(--ink);stroke-width:1.2;opacity:.55;pointer-events:none}
+.nchart .nfhit{touch-action:none;cursor:ew-resize}   /* the finger slides Now along the forecast instead of scrolling the chart */
 .ntip{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-10px;background:var(--ink);color:var(--card);font-size:12.5px;font-weight:600;
   padding:5px 9px;border-radius:9px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}   /* a tapped dot's label (2026-10-14) */
 .nhead,.ntop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer}
@@ -4232,8 +4236,8 @@ function nowModel(){
     if (M.r.csi && M.r.ph.at) {
       var fut = [], tmA = M.r.tempF && M.r.tempF.m;
       for (var tf = now + 3 * HR; tf <= now + 48 * HR; tf += 3 * HR) {
-        var cf = nowCsi(M.r.ph.at(tf).v, g('ta'), g('ch'), g('cya'), sv, bv, tmA && isNum(tmA.at(tf)) ? tmA.at(tf) : g('tempF'));
-        if (cf !== null) fut.push({ms: tf, v: cf});
+        var phF = M.r.ph.at(tf).v, tF = tmA && isNum(tmA.at(tf)) ? tmA.at(tf) : g('tempF'), cf = nowCsi(phF, g('ta'), g('ch'), g('cya'), sv, bv, tF);
+        if (cf !== null) fut.push({ms: tf, v: cf, ph: phF, tF: tF});
       }
       M.r.csi.fut = fut;
     }
@@ -4529,15 +4533,23 @@ function nowChart(o){
       s += '<path d="' + nowCurve(e.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-dasharray="4 4" opacity="' + (o.unsure ? .45 : .9) + '"/>';
     }
   }
+  var futHit = '';
   if (o.fut && o.fut.length) {
     var f2 = [{ms: now, v: o.nowV}].concat(o.fut.filter(function(p){ return p.ms <= x1; }));
     s += '<path d="' + nowCurve(f2.map(function(p){ return [X(p.ms), Y(p.v)]; })) + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-dasharray="2 4" opacity=".55"/>';
+    // grab Now and slide it along the forecast, or tap anywhere on it (2026-10-16, CSI): the nearest forecast point's label -
+    // what moves it by then. Drawn after the dots' tap circles, so it wins at the Now line itself.
+    if (o.futTip) {
+      var fx0 = X(now) - 4, fx1 = X(x1), fl = o.fut.filter(function(p){ return p.ms <= x1; }).map(function(p){ return [+X(p.ms).toFixed(1), +Y(p.v).toFixed(1), o.futTip(p)]; });
+      if (fx1 > fx0 && fl.length) futHit = '<rect class="nhit nfhit" x="' + fx0.toFixed(1) + '" y="' + top + '" width="' + (fx1 - fx0).toFixed(1) + '" height="' + ih + '" data-fut="' + esc(JSON.stringify(fl)) + '"/>';
+    }
   }
   var dotR = o.small ? 2 : 2.6;
   pts.forEach(function(p, i){ s += '<circle cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === pts.length - 1 ? 3.6 : dotR) + '" fill="' + col + '"/>'; });
   // tap a dot = its reading, day and time, and who (2026-10-14): a bigger see-through circle on top of each one
   pts.forEach(function(p){ s += '<circle class="nhit" cx="' + X(p.ms).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="13" data-tip="' + esc(nowTipText(o.k, p)) + '"/>'; });
   if (isNum(o.nowV)) s += '<circle cx="' + X(now).toFixed(1) + '" cy="' + Y(o.nowV).toFixed(1) + '" r="4.5" class="nnowdot" stroke="' + col + '"/>';
+  s += futHit;
   s += '</g>';
   // additions
   var axs = (o.adds || []).filter(function(a){ return a.ms >= x0 && a.ms <= now; }).map(function(a){ return {x: X(a.ms), label: a.label}; });
@@ -4735,6 +4747,20 @@ function nowCsiDetail(M){
   var g = function(k, d){ return M.r[k] ? nowFmt(k, M.r[k].v) : '–'; };
   var co = {k: 'csi', name: 'CSI', span: NOW_SPAN.csi, band: nowGreen('CSI'), zones: 'CSI', fix: [-0.5, 0.5], small: true, big: true, tall: true, soft: true, pts: pts,   // tall: 170 px (220 on computers)
     est: [{ms: M.now, v: r.v}], nowV: r.v, back: NOW_BACK.csi, fut: r.fut, ahead: r.fut && r.fut.length ? 48 : 0};
+  // a forecast point's label (2026-10-16, Camelo): when, the CSI then, and what changes it from now - pH first, then the water
+  // (the same order as How we got); TA, CH and CYA are held where they are
+  co.futTip = function(p){
+    var sg = function(d){ return (d < 0 ? '−' : '+') + Math.abs(d).toFixed(2); }, ph0 = M.r.ph.v, t0 = M.r.tempF.v, ta = M.r.ta.v, ch = M.r.ch.v, cy = M.r.cya.v;
+    var c1 = nowCsi(p.ph, ta, ch, cy, r.salt, r.bor, t0), when = '';
+    try { when = new Date(p.ms).toLocaleString('en-US', {weekday: 'short', hour: 'numeric', timeZone: 'America/Chicago'}); } catch(e){}
+    var ln = ['Forecast ' + when + ': CSI ≈' + nowFmt('csi', p.v) + ' (now ' + nowFmt('csi', r.v) + ')'];
+    if (c1 !== null) {
+      ln.push('pH ' + ph0.toFixed(2) + ' → ' + p.ph.toFixed(2) + '   ' + sg(c1 - r.v));
+      ln.push('Water ' + Math.round(t0) + '° → ' + Math.round(p.tF) + '°   ' + sg(p.v - c1));
+    }
+    ln.push('TA, CH, CYA held where they are');
+    return ln.join('\n');
+  };
   var ph78 = M.r.ph ? nowCsi(7.8, M.r.ta.v, M.r.ch.v, M.r.cya.v, r.salt, r.bor, M.r.tempF.v) : null;
   // How we got (2026-10-16, like the other tiles): the last test's CSI, then what moved it since - each reading swapped from
   // what it was at that test (its own value, or the latest before it) to its estimate now, one at a time, pH first
@@ -4956,13 +4982,48 @@ function setNowView(on){
   $('vHist').setAttribute('aria-pressed', !nowView); $('vNow').setAttribute('aria-pressed', nowView);
   if (nowView) renderNow(); else $('now').innerHTML = '';
 }
+/** The forecast label at a finger's place on the CSI forecast strip (2026-10-16): a line and dot at the nearest forecast point,
+ *  the label above it; called on a tap and while Now is dragged along. */
+function nowFutAt(hit, clientX, idx){
+  var old = document.querySelector('.ntip'); if (old) old.remove();
+  document.querySelectorAll('.nfdot, .nfline').forEach(function(x){ x.remove(); });
+  var svg = hit.ownerSVGElement, ctm = svg.getScreenCTM(), pt = svg.createSVGPoint(); pt.x = clientX; pt.y = 0;
+  var sx = pt.matrixTransform(ctm.inverse()).x, best = null, L = JSON.parse(hit.getAttribute('data-fut')), bi = 0;
+  L.forEach(function(q, i){ if (!best || Math.abs(q[0] - sx) < Math.abs(best[0] - sx)) { best = q; bi = i; } });
+  if (isNum(idx)) { bi = Math.max(0, Math.min(L.length - 1, Math.round(idx))); best = L[bi]; }
+  var NS = 'http://www.w3.org/2000/svg', y0 = +hit.getAttribute('y'), ln = document.createElementNS(NS, 'line'), dot = document.createElementNS(NS, 'circle');
+  ln.setAttribute('class', 'nfline'); ln.setAttribute('x1', best[0]); ln.setAttribute('x2', best[0]); ln.setAttribute('y1', y0); ln.setAttribute('y2', y0 + +hit.getAttribute('height'));
+  dot.setAttribute('class', 'nfdot'); dot.setAttribute('cx', best[0]); dot.setAttribute('cy', best[1]); dot.setAttribute('r', 3.6);
+  hit.parentNode.insertBefore(ln, hit); hit.parentNode.insertBefore(dot, hit);
+  pt.x = best[0]; pt.y = best[1];
+  var sp = pt.matrixTransform(ctm), tile = hit.closest('.ntile'), tr = tile.getBoundingClientRect(), tip = document.createElement('div');
+  tip.className = 'ntip nfut'; tip.textContent = best[2]; tile.appendChild(tip);
+  var half = tip.offsetWidth / 2;
+  tip.style.left = Math.max(half + 6, Math.min(tr.width - half - 6, sp.x - tr.left)) + 'px'; tip.style.top = (sp.y - tr.top - 6) + 'px';
+  return {i: bi, n: L.length, right: tr.right, step: L.length > 1 ? Math.abs(ctm.a * (L[1][0] - L[0][0])) : 4};
+}
 (function(){
   $('vHist').addEventListener('click', function(){ setNowView(false); });
   $('vNow').addEventListener('click', function(){ setNowView(true); });
+  // dragging Now along the CSI forecast (2026-10-16, Camelo: "grab the now line and slide it")
+  var futDrag = null, futMoved = false;
+  $('now').addEventListener('pointerdown', function(e){
+    var h = e.target.closest && e.target.closest('.nfhit'); if (!h) return;
+    futMoved = false; try { h.setPointerCapture(e.pointerId); } catch(x){}
+    var at = nowFutAt(h, e.clientX);
+    // the 2 days ahead are a narrow strip on a phone, so the slide is stretched: the end of the forecast comes at the tile's
+    // right edge, wherever the finger started
+    futDrag = {h: h, x: e.clientX, i: at.i, px: Math.max(at.step, (at.right - 14 - e.clientX) / Math.max(1, at.n - 1 - at.i))};
+  });
+  $('now').addEventListener('pointermove', function(e){ if (futDrag && Math.abs(e.clientX - futDrag.x) > 3) futMoved = true; if (futDrag) nowFutAt(futDrag.h, e.clientX, futDrag.i + (e.clientX - futDrag.x) / futDrag.px); });
+  ['pointerup', 'pointercancel'].forEach(function(ev){ $('now').addEventListener(ev, function(){ futDrag = null; }); });
   $('now').addEventListener('click', function(e){
     // a tapped dot: its label above it, inside the tile (kept on screen); any other tap closes it
+    if (futMoved && e.target.closest('.nfhit')) { futMoved = false; return; }   // the end of a slide: keep where it stopped
     var old = document.querySelector('.ntip'), hit = e.target.closest('.nhit');
     if (old) old.remove();
+    document.querySelectorAll('.nfdot, .nfline').forEach(function(x){ x.remove(); });
+    if (hit && hit.getAttribute('data-fut')) { nowFutAt(hit, e.clientX); return; }
     if (hit) {
       var tile = hit.closest('.ntile'), tr = tile.getBoundingClientRect(), hr = hit.getBoundingClientRect(), tip = document.createElement('div');
       tip.className = 'ntip'; tip.textContent = hit.getAttribute('data-tip'); tile.appendChild(tip);
