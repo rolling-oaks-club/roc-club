@@ -4282,14 +4282,23 @@ function nowAcidPct(){ var a = null; (DATA.chems || []).forEach(function(x){ if 
 /* ---- chart: tests as dots on a line, a dashed estimate from the last test on, triangles for additions, a bar for feeders */
 /** A soft line through every point (2026-10-10, Camelo: "a little softer, still through the dots"): monotone cubic
  *  (Fritsch-Carlson), so it never swings above a high dot or below a low one between them. pts = [[x, y]] in screen units. */
-/** A softer curve through every point (Catmull-Rom; CSI, 2026-10-15): it rounds the corners at each dot instead of
- *  flattening there like nowCurve, so a run of daily tests reads as one flowing line. Overshoot is kept small (tension). */
+/** A softer curve through every point (CSI, 2026-10-15): rounds the corners at each dot instead of flattening there like
+ *  nowCurve. Slopes come from the neighbours on either side, measured in time, and each bend reaches only a third of the way
+ *  to the next dot, so the line can never run backwards in time (a plain Catmull-Rom made loops where tests hours apart sat
+ *  next to tests a week apart); the bulge past the two dots is capped at a quarter of their gap (+3 px). */
 function nowSoftCurve(pts){
   var n = pts.length, f = function(v){ return v.toFixed(1); }; if (n < 3) return nowCurve(pts);
-  var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]), k = 0.18;
-  for (var i = 0; i < n - 1; i++) {
-    var p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)];
-    d += ' C' + f(p1[0] + (p2[0] - p0[0]) * k) + ' ' + f(p1[1] + (p2[1] - p0[1]) * k) + ' ' + f(p2[0] - (p3[0] - p1[0]) * k) + ' ' + f(p2[1] - (p3[1] - p1[1]) * k) + ' ' + f(p2[0]) + ' ' + f(p2[1]);
+  var t = [];
+  for (var i = 0; i < n; i++) {
+    var a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    t[i] = b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0;
+  }
+  var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]);
+  for (i = 0; i < n - 1; i++) {
+    var p1 = pts[i], p2 = pts[i + 1], dx = Math.max(0, p2[0] - p1[0]), q = dx / 3;
+    var lo = Math.min(p1[1], p2[1]), hi = Math.max(p1[1], p2[1]), room = (hi - lo) * 0.25 + 3;
+    var c1 = Math.max(lo - room, Math.min(hi + room, p1[1] + t[i] * q)), c2 = Math.max(lo - room, Math.min(hi + room, p2[1] - t[i + 1] * q));
+    d += ' C' + f(p1[0] + q) + ' ' + f(c1) + ' ' + f(p2[0] - q) + ' ' + f(c2) + ' ' + f(p2[0]) + ' ' + f(p2[1]);
   }
   return d;
 }
