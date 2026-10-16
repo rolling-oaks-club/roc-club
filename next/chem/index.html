@@ -1645,6 +1645,7 @@ html:is(.app,.msafari) body.v-now #now{margin-bottom:calc(var(--cornerGap,24px) 
 .nchart .nadd{font-size:10px;font-weight:650}
 .nchart .nband{fill:var(--okT);opacity:.7}
 .nchart .ngrid{stroke:var(--line);stroke-width:1;opacity:.6}
+.nchart .ngrid.nfut{stroke-dasharray:4 4;opacity:.9}
 .nchart .nnow{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
 .nchart .nnowdot{fill:var(--card);stroke-width:2}
 .nfoot{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink2)}
@@ -4455,6 +4456,14 @@ function nowChart(o){
     s += '<line x1="' + xx.toFixed(1) + '" x2="' + xx.toFixed(1) + '" y1="' + top + '" y2="' + (top + ih) + '" class="ngrid"/>';
     var lab = d === 0 ? 'Today' : step === 1 ? WDAY[new Date(+p[0], +p[1] - 1, +p[2]).getDay()] : MONTHS[+p[1] - 1] + ' ' + (+p[2]);
     if (Math.abs(xx - lastLx) > 38 && xx > 14) { s += '<text x="' + xx.toFixed(1) + '" y="' + (H - 5) + '" text-anchor="middle">' + lab + '</text>'; lastLx = xx; }
+  }
+  // the days ahead (2026-10-16, Camelo): dashed day lines past Now, labeled where they fit
+  for (var d2 = 1; d2 <= 7; d2++) {
+    var dayF = addDays(today, d2), pF = dayF.split('-'), msF = Date.UTC(+pF[0], +pF[1] - 1, +pF[2], 5);
+    if (msF >= x1) break;
+    var xf = X(msF);
+    s += '<line x1="' + xf.toFixed(1) + '" x2="' + xf.toFixed(1) + '" y1="' + top + '" y2="' + (top + ih) + '" class="ngrid nfut"/>';
+    if (Math.abs(xf - lastLx) > 38 && xf < padL + iw - 10) { s += '<text x="' + xf.toFixed(1) + '" y="' + (H - 5) + '" text-anchor="middle">' + WDAY[new Date(+pF[0], +pF[1] - 1, +pF[2]).getDay()] + '</text>'; lastLx = xf; }
   }
   if (o.ahead) {
     var nx = X(now), ex = X(x1), endT = nowClock(Math.round(x1 / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(now).split(' ')[0] ? '' : d + ' '; });
