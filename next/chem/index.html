@@ -4659,8 +4659,14 @@ function nowTile(M, def){
     } else if (gp && r.v < gp.lo) todo = 'Low. It rises by itself; the acid feeder may be set too high.';
     // ahead (2026-10-16, Camelo: "like FC does", 2 days for CSI, FC and pH): the next 48 h from the same estimate (usual rise less the acid already
     // in the feeders), and when it passes the top of green within 2 days
-    var pf = [], pOver = null;
-    for (var tp = M.now + 2 * HR; tp <= M.now + 48 * HR; tp += 2 * HR) { var pv = r.at(tp).v; pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp; }
+    // drawn smooth (2026-10-21, Camelo: "sharp points"): hourly, each hour the average of the hours up to 4 either side (fewer
+    // near Now, so it still starts at Now's value), which rounds the bends where a feeder runs out or the 8.4 cap is reached
+    var pf = [], pOver = null, praw = [];
+    for (var hh = 0; hh <= 52; hh++) praw.push(r.at(M.now + hh * HR).v);
+    for (hh = 1; hh <= 48; hh++) {
+      var w = Math.min(4, hh), pv = 0; for (var j = -w; j <= w; j++) pv += praw[Math.min(52, hh + j)]; pv /= 2 * w + 1;
+      var tp = M.now + hh * HR; pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp;
+    }
     chartO.fut = pf; chartO.ahead = 48;
     if (pOver && !todo) todo = 'At this pace it passes ' + gp.hi + ' around ' + nowClock(Math.round(pOver / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }) + '.';
   } else if (k === 'ta' || k === 'ch' || k === 'cya') {
