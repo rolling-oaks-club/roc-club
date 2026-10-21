@@ -4613,7 +4613,10 @@ function nowFeeds(cs, f){
     });
     if (b > a) out.push([a, b]);
   });
-  return out;
+  // one tank (2026-10-21, Camelo: "there are never two fills - I'm just topping up the same tank"): bars that overlap or touch
+  // become one, so the see-through bars don't stack into a darker patch
+  out.sort(function(p, q){ return p[0] - q[0]; });
+  return out.reduce(function(m, r){ var l = m[m.length - 1]; if (l && r[0] <= l[1] + 60000) l[1] = Math.max(l[1], r[1]); else m.push(r.slice()); return m; }, []);
 }
 function nowStats(k, rname, days){
   var cut = Date.now() - days * DAYMS, v = (DATA.tests || []).filter(function(t){ return t.ms >= cut && isNum(t[k]); }).map(function(t){ return t[k]; });
