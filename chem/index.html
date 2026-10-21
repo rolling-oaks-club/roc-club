@@ -4078,6 +4078,21 @@ function nowPast(cs, k, al, be, rate){
     else res = nowPastPh(A, B, grid, slow, quick, rate);
     if (res) out[A.ms] = res;
   }
+  // pH (2026-10-21, Camelo: sharp points at the dots): each stretch was its own line, so it met the next one at an angle. Now,
+  // like the slow tests, the base is one smooth curve through every test (nowHermite) with the model's shape riding on it
+  // (its straight-line trend taken out), the shape eased to nothing at both tests (x sin) so the line passes each dot without a corner
+  if (k === 'ph' && T.length > 2) {
+    var base = nowHermite(T.map(function(t){ return {ms: t.ms, v: t.ph}; }));
+    T.forEach(function(t, n){
+      var res = out[t.ms], B = T[n + 1]; if (!res || !B) return;
+      var g = B.ms - t.ms;
+      res.pts = res.pts.map(function(q){
+        var u = (q.ms - t.ms) / g, sh = q.v - (t.ph + (B.ph - t.ph) * u);
+        return {ms: q.ms, v: base(q.ms) + sh * Math.sin(Math.PI * Math.max(0, Math.min(1, u)))};
+      });
+      res.jumps.forEach(function(j){ var p = res.pts.filter(function(q){ return q.ms >= Math.min(B.ms, j.ms + NOW_MIX) - 1000; })[0]; j.v = p ? p.v : B.ph; });
+    });
+  }
   return out;
 }
 /* ---- the past line for the slow tests (TA, CH, CYA; 2026-10-14, Camelo: "for something like cya, the changes are slow,
@@ -4598,7 +4613,10 @@ function nowFeeds(cs, f){
     });
     if (b > a) out.push([a, b]);
   });
-  return out;
+  // one tank (2026-10-21, Camelo: "there are never two fills - I'm just topping up the same tank"): bars that overlap or touch
+  // become one, so the see-through bars don't stack into a darker patch
+  out.sort(function(p, q){ return p[0] - q[0]; });
+  return out.reduce(function(m, r){ var l = m[m.length - 1]; if (l && r[0] <= l[1] + 60000) l[1] = Math.max(l[1], r[1]); else m.push(r.slice()); return m; }, []);
 }
 function nowStats(k, rname, days){
   var cut = Date.now() - days * DAYMS, v = (DATA.tests || []).filter(function(t){ return t.ms >= cut && isNum(t[k]); }).map(function(t){ return t[k]; });
@@ -4659,8 +4677,14 @@ function nowTile(M, def){
     } else if (gp && r.v < gp.lo) todo = 'Low. It rises by itself; the acid feeder may be set too high.';
     // ahead (2026-10-16, Camelo: "like FC does", 2 days for CSI, FC and pH): the next 48 h from the same estimate (usual rise less the acid already
     // in the feeders), and when it passes the top of green within 2 days
-    var pf = [], pOver = null;
-    for (var tp = M.now + 2 * HR; tp <= M.now + 48 * HR; tp += 2 * HR) { var pv = r.at(tp).v; pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp; }
+    // drawn smooth (2026-10-21, Camelo: "sharp points"): hourly, each hour the average of the hours up to 4 either side (fewer
+    // near Now, so it still starts at Now's value), which rounds the bends where a feeder runs out or the 8.4 cap is reached
+    var pf = [], pOver = null, praw = [];
+    for (var hh = 0; hh <= 52; hh++) praw.push(r.at(M.now + hh * HR).v);
+    for (hh = 1; hh <= 48; hh++) {
+      var w = Math.min(4, hh), pv = 0; for (var j = -w; j <= w; j++) pv += praw[Math.min(52, hh + j)]; pv /= 2 * w + 1;
+      var tp = M.now + hh * HR; pf.push({ms: tp, v: pv}); if (!pOver && gp && r.v <= gp.hi && pv > gp.hi) pOver = tp;
+    }
     chartO.fut = pf; chartO.ahead = 48;
     if (pOver && !todo) todo = 'At this pace it passes ' + gp.hi + ' around ' + nowClock(Math.round(pOver / HR) * HR).replace(/^(\w+) /, function(m, d){ return d === nowClock(M.now).split(' ')[0] ? '' : d + ' '; }) + '.';
   } else if (k === 'ta' || k === 'ch' || k === 'cya') {
