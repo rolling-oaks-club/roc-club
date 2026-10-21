@@ -4078,6 +4078,21 @@ function nowPast(cs, k, al, be, rate){
     else res = nowPastPh(A, B, grid, slow, quick, rate);
     if (res) out[A.ms] = res;
   }
+  // pH (2026-10-21, Camelo: sharp points at the dots): each stretch was its own line, so it met the next one at an angle. Now,
+  // like the slow tests, the base is one smooth curve through every test (nowHermite) with the model's shape riding on it
+  // (its straight-line trend taken out), the shape eased to nothing at both tests (x sin) so the line passes each dot without a corner
+  if (k === 'ph' && T.length > 2) {
+    var base = nowHermite(T.map(function(t){ return {ms: t.ms, v: t.ph}; }));
+    T.forEach(function(t, n){
+      var res = out[t.ms], B = T[n + 1]; if (!res || !B) return;
+      var g = B.ms - t.ms;
+      res.pts = res.pts.map(function(q){
+        var u = (q.ms - t.ms) / g, sh = q.v - (t.ph + (B.ph - t.ph) * u);
+        return {ms: q.ms, v: base(q.ms) + sh * Math.sin(Math.PI * Math.max(0, Math.min(1, u)))};
+      });
+      res.jumps.forEach(function(j){ var p = res.pts.filter(function(q){ return q.ms >= Math.min(B.ms, j.ms + NOW_MIX) - 1000; })[0]; j.v = p ? p.v : B.ph; });
+    });
+  }
   return out;
 }
 /* ---- the past line for the slow tests (TA, CH, CYA; 2026-10-14, Camelo: "for something like cya, the changes are slow,
