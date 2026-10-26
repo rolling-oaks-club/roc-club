@@ -5936,13 +5936,13 @@ function setUnlocked(on, level, who){
 }
 function applyUnlocked(data, code, res){
   DATA = data; CODE = code; setUnlocked(true, (res && res.level) || data.level, res && res.who); renderAll();
-  try { localStorage.setItem('rocChemData', JSON.stringify({ level: LEVEL, who: WHO, data: data })); } catch(e){}
+  dataAt = Date.now(); if (staleAt){ staleAt = 0; showStatus(''); } keepData();
   document.body.classList.toggle('is-vol', !!(res && res.vol));   // own login: My login
   setWaiting(res && (res.level || data.level) === 'manager' ? res.pending : 0);
   if (window.outWake) outWake();
 }
 function lockNow(msg){
-  CODE = ''; forgetCode(); document.body.classList.remove('is-vol'); setWaiting(0);
+  CODE = ''; staleAt = 0; forgetCode(); document.body.classList.remove('is-vol'); setWaiting(0);
   closePop();
   DATA.tests = []; DATA.chems = []; DATA.trackers = []; DATA.stock = {}; DATA.hasPrices = false; DATA.priceRows = []; DATA.chemicals = []; DATA.priceWarnings = []; DATA.noteIssues = []; DATA.calc = null; DATA.locked = true;
   $('printView').innerHTML = '';
@@ -5951,6 +5951,30 @@ function lockNow(msg){
   setUnlocked(false); renderAll();
   showStatus(msg || '', false);
 }
+/* ------------------------------------------------------------ the phone's copy, fresh on return (2026-10-25) */
+// The website keeps the last signed-in data on the phone (KEEP_KEY, set by build-chem.js; empty inside Apps Script) and
+// shows it at once on the next visit while the server's answer comes (a few seconds). keepData() saves it whenever new
+// data arrives and when the app goes to the background, so that copy is never older than what was last on screen.
+// Back in front with data older than RETURN_MIN minutes: fetch fresh data (as ↻). staleAt = when the copy on screen
+// was made while it waits for the server ("Updating…" in the status line), 0 once fresh.
+var KEEP_KEY = 'rocChemData', RETURN_MIN = 10, dataAt = Date.now(), staleAt = 0;   // dataAt: inside Apps Script the page comes with fresh data
+function keepData(){
+  if (!KEEP_KEY || !unlocked || !CODE) return;
+  try { localStorage.setItem(KEEP_KEY, JSON.stringify({ level: LEVEL, who: WHO, data: DATA, at: dataAt || Date.now() })); } catch(e){}
+}
+function staleSay(){
+  if (!staleAt) return;
+  var d = new Date(staleAt);
+  if (staleAt < 2){ showStatus('Could not update: showing this phone’s last copy. Pull down to try again.', true); return; }   // a copy saved before 2026-10-25 has no time
+  showStatus('Could not update: showing this phone’s copy from ' + d.toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}) +
+    ', ' + d.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}) + '. Pull down to try again.', true);
+}
+window.addEventListener('pagehide', keepData);
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden'){ keepData(); return; }
+  if (autoBusy || (window.outCount && outCount()) || Date.now() - dataAt < RETURN_MIN * 60000) return;   // waiting entries bring fresh data themselves
+  refreshNow();
+});
 /** Returns true if the reply was a "no" the caller should stop on: a key number / password that no longer works signs
  *  this device out; 'level' (signed in, but this needs a higher level) only shows the message. */
 function handleDenied(res){
@@ -6215,7 +6239,7 @@ function autoUnlock(code){
       if (res && res.why === 'wrong') wrapSend({roc: 'forget'});
       if (unlocked && CODE) wrapSend({roc: 'save', code: CODE});
     } else handleDenied(res);
-  }, function(){ done(); /* offline or slow: stay locked quietly */ });
+  }, function(){ done(); staleSay(); /* offline or slow: stay locked quietly (or say the phone's copy is showing) */ });
 }
 // the wrapper answers {roc:'hello'} with {roc:'code', code} - the key number / password signed in on any ROC tool
 window.addEventListener('message', function(e){
@@ -6242,8 +6266,8 @@ function refreshNow(after){
     showStatus(msg, isErr);
     clearTimeout(refreshMsgT); refreshMsgT = setTimeout(function(){ showStatus(''); }, isErr ? 6000 : 2500);
   }
-  function fail(e){ finish('Could not refresh: ' + (e && e.message || e), true); }
-  closePop();
+  function fail(e){ if (staleAt){ finish(''); staleSay(); return; } finish('Could not refresh: ' + (e && e.message || e), true); }
+  closePop(); showStatus('Updating…');
   if (unlocked && CODE){
     serverCall('unlock', [CODE], function(res){
       if (handleDenied(res)){ finish(''); return; }
@@ -6253,7 +6277,7 @@ function refreshNow(after){
   } else {
     serverCall('publicData', [], function(res){
       if (!res || !res.ok){ finish('Could not refresh.', true); return; }
-      DATA = res.data; renderAll(); finish('Up to date.');
+      DATA = res.data; dataAt = Date.now(); renderAll(); finish('Up to date.');
     }, fail);
   }
 }
@@ -7092,12 +7116,13 @@ document.addEventListener('DOMContentLoaded', function(){
   else {
     autoUnlock();
     var kept = null; try { kept = JSON.parse(localStorage.getItem('rocChemData') || 'null'); } catch(e){}
-    if (kept && kept.data && loadCode()){ DATA = kept.data; CODE = loadCode(); setUnlocked(true, kept.level, kept.who); renderAll(); setLoading(false); }
+    if (kept && kept.data && loadCode()){ DATA = kept.data; CODE = loadCode(); setUnlocked(true, kept.level, kept.who); renderAll(); setLoading(false);
+      dataAt = staleAt = kept.at || 1; if (autoBusy) showStatus('Updating…'); else staleSay(); }
   }
   serverCall('publicData', [], function(res){
     if (!res || !res.ok || !res.data) return;
     try { localStorage.setItem('rocChemPublic', JSON.stringify(res.data)); } catch(e){}
-    if (!unlocked){ DATA = res.data; renderAll(); }
+    if (!unlocked){ DATA = res.data; dataAt = Date.now(); renderAll(); }
   }, function(){});
 });
 </script>
@@ -8125,7 +8150,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if (res && res.ok) {
         outDrop(e); outFailed = false;
         if (e.kind === 'pump') { if (pump.readings && res.entry) pump.readings.unshift(res.entry); }
-        else if (res.data && e.code === CODE) { DATA = res.data; renderAll(); }
+        else if (res.data && e.code === CODE) { DATA = res.data; dataAt = Date.now(); renderAll(); keepData(); }
         outDraw(); outPump(); return;
       }
       if (res && res.retry) { outFailed = true; outDraw(); return; }                 // busy: the timer sends it again
@@ -8150,6 +8175,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!todo.some(function(e){ return outBusy[e.id] && Date.now() - outBusy[e.id] < 90000; })) outSend(todo[0]);
   }
   window.outWake = function(){ outPump(); outDraw(); };
+  window.outCount = function(){ return out.length; };
   function outWhen(s){
     var m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(s || ''); if (!m) return '';
     var h = +m[2];
