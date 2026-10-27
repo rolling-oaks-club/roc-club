@@ -3871,17 +3871,47 @@ function nowRefill(a, b){
 /** CH that refill water brings in: it replaces evaporated water, which leaves its calcium behind. */
 function nowRefillCh(a, b){ var g = nowRefill(a, b); return g === null ? 0 : g * nowWellCh() / 48000; }
 
-/** pH fall when strong acid neutralizes acidPpm of alkalinity (same carbonate balance as Code.gs phDrop_). */
-function nowPhDrop(pH, ta, cya, acidPpm){
-  if (!(acidPpm > 0)) return 0;
+/** pH after alkalinity changes by dAlk (ppm as CaCO3; acid = minus, borax = plus) and borates by dBor (ppm), from the
+ *  carbonate, cyanurate and borate balance with the total carbonate held fixed (same as Code.gs phAfter_). Borates in the
+ *  water (bor) buffer both ways, so acid moves pH less with them. Null when it can't be worked out. */
+function nowPhAfter(pH, ta, cya, bor, dAlk, dBor){
+  if (!dAlk && !dBor) return pH;
   var K1 = Math.pow(10, -6.35), K2 = Math.pow(10, -10.33);
   var frac = function(p){ var h = Math.pow(10, -p), d = h * h + K1 * h + K1 * K2; return (K1 * h + 2 * K1 * K2) / d; };
   var cyaAlk = function(p){ return (cya || 0) * (50 / 129) / (1 + Math.pow(10, 6.88 - p)); };
-  var carb = ta - cyaAlk(pH); if (carb <= 0) return null;
-  var dic = carb / frac(pH), target = ta - acidPpm, lo = 3, hi = pH;
-  if (target <= dic * frac(lo) + cyaAlk(lo)) return null;
-  for (var i = 0; i < 50; i++) { var mid = (lo + hi) / 2; if (dic * frac(mid) + cyaAlk(mid) > target) hi = mid; else lo = mid; }
-  return pH - (lo + hi) / 2;
+  var borAlk = function(b, p){ return (b / 61.83) * 50 / (1 + Math.pow(10, 9.24 - p)); };
+  var b0 = bor || 0, carb = ta - cyaAlk(pH) - borAlk(b0, pH); if (carb <= 0) return null;
+  var dic = carb / frac(pH), target = ta + (dAlk || 0), f = function(p){ return dic * frac(p) + cyaAlk(p) + borAlk(b0 + (dBor || 0), p); };
+  var lo = 3, hi = 11;
+  if (target <= f(lo) || target >= f(hi)) return null;
+  for (var i = 0; i < 50; i++) { var mid = (lo + hi) / 2; if (f(mid) > target) hi = mid; else lo = mid; }
+  return (lo + hi) / 2;
+}
+/** pH fall when strong acid neutralizes acidPpm of alkalinity (same carbonate balance as Code.gs phDrop_). */
+function nowPhDrop(pH, ta, cya, acidPpm, bor){
+  if (!(acidPpm > 0)) return 0;
+  var p = nowPhAfter(pH, ta, cya, bor, -acidPpm, 0);
+  return p === null ? null : pH - p;
+}
+/** Borates (ppm) at ms: the last borate test plus borax added since (0 with no test: borax alone is then left out of the
+ *  buffer, not its own rise). */
+function nowBorAt(cs, ms){
+  var t = nowLastBefore('bor', ms, 400 * DAYMS);
+  return t ? t.bor + nowSum(cs, 'bor', t.ms, ms) : 0;
+}
+/** How far what was added between a test (pH at a) and ms moves pH (2026-10-27, Camelo: borax showed on the log but not
+ *  on the forecast): acid (x kA, for the past line's fit) and borax together, through nowPhAfter, against the TA / CYA /
+ *  borates at the test. {d: total change, acid: the acid's part (a fall, positive), base: borax's part (a rise)};
+ *  null when it can't be worked out. */
+function nowPhShift(cs, pH, a, ms, kA){
+  var ta = nowLastBefore('ta', a, 45 * DAYMS);
+  if (!ta) return {d: 0, acid: 0, base: 0, ppm: 0};
+  var cy = nowLastBefore('cya', a, 45 * DAYMS), cya = cy ? cy.cya : 0, bor = nowBorAt(cs, a);
+  var acid = nowSum(cs, 'acid', a, ms) * (kA == null ? 1 : kA), alk = nowSum(cs, 'alk', a, ms), dBor = nowSum(cs, 'bor', a, ms);
+  if (!acid && !alk && !dBor) return {d: 0, acid: 0, base: 0, ppm: 0};
+  var p = nowPhAfter(pH, ta.ta, cya, bor, alk - acid, dBor); if (p === null) return null;
+  var pa = acid > 0 ? nowPhAfter(pH, ta.ta, cya, bor, -acid, 0) : pH, drop = pa === null ? 0 : pH - pa;
+  return {d: p - pH, acid: drop, base: p - pH + drop, ppm: acid};
 }
 /** CSI (same formula as the entry preview). */
 function nowCsi(ph, ta, ch, cya, salt, bor, tempF){
@@ -3954,11 +3984,10 @@ function nowPhRate(cs){
   for (var i = 1; i < T.length; i++) {
     var a = T[i - 1], b = T[i], g = b.ms - a.ms;
     if (now - b.ms > 45 * DAYMS || g < 3 * HR || g > 96 * HR) continue;
-    var ta = nowLastBefore('ta', a.ms, 45 * DAYMS); if (!ta) continue;
-    var cy = nowLastBefore('cya', a.ms, 45 * DAYMS);
-    var drop = nowPhDrop(a.ph, ta.ta, cy ? cy.cya : 0, nowSum(cs, 'acid', a.ms, b.ms));
-    if (drop === null) continue;
-    r.push((b.ph - a.ph + drop) / (g / HR));
+    if (!nowLastBefore('ta', a.ms, 45 * DAYMS)) continue;
+    var sh = nowPhShift(cs, a.ph, a.ms, b.ms);                    // acid and borax in between taken off
+    if (sh === null) continue;
+    r.push((b.ph - a.ph - sh.d) / (g / HR));
   }
   var m = r.length >= 3 ? nowMedian(r) : 0.004;
   return Math.max(0, Math.min(0.03, m));
@@ -4066,8 +4095,8 @@ function nowPastOut(A, B, grid, vals, quick, floor){
   })};
 }
 function nowPast(cs, k, al, be, rate){
-  var T = nowTests(k), now = Date.now(), out = {}, f = k === 'fc' ? 'fc' : 'acid';
-  var mine = cs.filter(function(x){ return x.fx[f]; });
+  var T = nowTests(k), now = Date.now(), out = {};
+  var mine = cs.filter(function(x){ return k === 'fc' ? x.fx.fc : x.fx.acid || x.fx.alk || x.fx.bor; });   // pH: acid and borax
   for (var n = 1; n < T.length; n++) {
     var A = {ms: T[n - 1].ms, v: T[n - 1][k]}, B = {ms: T[n].ms, v: T[n][k]}, g = B.ms - A.ms;
     if (g >= NOW_PAST_GAP || g < 10 * 60000 || now - B.ms > 366 * DAYMS) continue;
@@ -4075,7 +4104,7 @@ function nowPast(cs, k, al, be, rate){
     var slow = near.filter(function(x){ return x.slow; }), quick = near.filter(function(x){ return !x.slow && x.ms > A.ms; });
     var grid = nowPastGrid(A.ms, B.ms, now, quick), res = null;
     if (k === 'fc') res = nowPastFc(A, B, grid, slow, quick, al, be);
-    else res = nowPastPh(A, B, grid, slow, quick, rate);
+    else res = nowPastPh(A, B, grid, slow, quick, rate, cs);
     if (res) out[A.ms] = res;
   }
   // pH (2026-10-21, Camelo: sharp points at the dots): each stretch was its own line, so it met the next one at an angle. Now,
@@ -4174,21 +4203,26 @@ function nowPastFc(A, B, grid, slow, quick, al, be){
   }
   return nowPastOut(A, B, grid, run(kL, kA, true), quick, 0);
 }
-function nowPastPh(A, B, grid, slow, quick, rate){
-  var ta = nowLastBefore('ta', A.ms, 45 * DAYMS), cy = nowLastBefore('cya', A.ms, 45 * DAYMS);
-  var acid = grid.map(function(t){
-    var a = nowSum(slow, 'acid', A.ms, t);
-    quick.forEach(function(x){ a += x.fx.acid * nowMixed(x, t); });
+function nowPastPh(A, B, grid, slow, quick, rate, cs){
+  var ta = nowLastBefore('ta', A.ms, 45 * DAYMS), cy = nowLastBefore('cya', A.ms, 45 * DAYMS), bor = nowBorAt(cs, A.ms);
+  var sums = function(f){ return grid.map(function(t){
+    var a = nowSum(slow, f, A.ms, t);
+    quick.forEach(function(x){ if (x.fx[f]) a += x.fx[f] * nowMixed(x, t); });
     return a;
-  });
-  var drop = function(i, kA){ return ta && acid[i] > 0 ? (nowPhDrop(A.v, ta.ta, cy ? cy.cya : 0, acid[i] * kA) || 0) : 0; };
-  var last = grid.length - 1, rise = B.v - A.v + drop(last, 1), kA = 1;
-  if (rise < 0) {                                                 // lower than the acid alone explains: no rise, more acid effect
-    if (!(drop(last, 1) > 0)) return null;
-    var hi = 2; while (hi < 64 && A.v - drop(last, hi) > B.v) hi *= 2;
-    kA = nowSolve(function(x){ return A.v - drop(last, x) - B.v; }, 1, hi); rise = 0;
+  }); };
+  var acid = sums('acid'), alk = sums('alk'), dBor = sums('bor');
+  // pH change from acid (x kA) and borax by grid point i (borax raises it: 2026-10-27)
+  var shift = function(i, kA){
+    if (!ta || !(acid[i] > 0 || alk[i] > 0 || dBor[i] > 0)) return 0;
+    var p = nowPhAfter(A.v, ta.ta, cy ? cy.cya : 0, bor, alk[i] - acid[i] * kA, dBor[i]); return p === null ? 0 : p - A.v;
+  };
+  var last = grid.length - 1, rise = B.v - A.v - shift(last, 1), kA = 1;
+  if (rise < 0) {                                                 // lower than the additions explain: no rise, more acid effect
+    if (!(acid[last] > 0) || !(shift(last, 2) < shift(last, 1))) return null;
+    var hi = 2; while (hi < 64 && A.v + shift(last, hi) > B.v) hi *= 2;
+    kA = nowSolve(function(x){ return A.v + shift(last, x) - B.v; }, 1, hi); rise = 0;
   }
-  return nowPastOut(A, B, grid, grid.map(function(t, i){ return A.v + rise * (t - A.ms) / (B.ms - A.ms) - drop(i, kA); }), quick);
+  return nowPastOut(A, B, grid, grid.map(function(t, i){ return A.v + rise * (t - A.ms) / (B.ms - A.ms) + shift(i, kA); }), quick);
 }
 
 /* ---- the whole picture */
@@ -4206,15 +4240,14 @@ function nowModel(){
   // pH
   var rate = nowPhRate(cs), lastPh = nowTests('ph').pop();
   if (lastPh) {
-    var ta0 = nowLastBefore('ta', lastPh.ms, 45 * DAYMS), cy0 = nowLastBefore('cya', lastPh.ms, 45 * DAYMS);
-    var phAt = function(ms){
-      var acid = nowSum(cs, 'acid', lastPh.ms, ms), d = ta0 ? nowPhDrop(lastPh.ph, ta0.ta, cy0 ? cy0.cya : 0, acid) : 0;
-      return {v: Math.min(8.4, lastPh.ph + rate * (ms - lastPh.ms) / HR - (d || 0)), drop: d || 0, acid: acid};
+    var phAt = function(ms){                                       // usual rise + acid and borax since the test (nowPhShift)
+      var sh = nowPhShift(cs, lastPh.ph, lastPh.ms, ms) || {d: 0, acid: 0, base: 0, ppm: 0};
+      return {v: Math.min(8.4, lastPh.ph + rate * (ms - lastPh.ms) / HR + sh.d), drop: sh.acid, base: sh.base, acid: sh.ppm};
     };
     var pn = phAt(now), path = [];
     for (var t = lastPh.ms + 3 * HR; t < now; t += 3 * HR) path.push({ms: t, v: phAt(t).v});
     path.push({ms: now, v: pn.v});
-    M.r.ph = {last: lastPh, v: pn.v, drop: pn.drop, acid: pn.acid, rise: rate * (now - lastPh.ms) / HR, rate: rate, path: path, past: nowPast(cs, 'ph', 0, 0, rate), at: phAt};
+    M.r.ph = {last: lastPh, v: pn.v, drop: pn.drop, base: pn.base, acid: pn.acid, rise: rate * (now - lastPh.ms) / HR, rate: rate, path: path, past: nowPast(cs, 'ph', 0, 0, rate), at: phAt};
   }
   // TA, CH, CYA, CC: the last test plus what was added since, plus their own slow drift (refill water, splash-out)
   [['ta', function(a, b){ return nowSum(cs, 'alk', a, b) - nowSum(cs, 'acid', a, b); }, 1, 3],
@@ -4249,7 +4282,7 @@ function nowModel(){
   var g = function(k){ return M.r[k] ? M.r[k].v : null; };
   var salt = nowTests('salt').pop(), bor = nowTests('bor').pop();
   if (isNum(g('ph')) && isNum(g('ta')) && isNum(g('ch')) && isNum(g('cya')) && isNum(g('tempF'))) {
-    var sv = salt && salt.salt >= 500 ? salt.salt : 1000, bv = bor ? bor.bor : 0;
+    var sv = salt && salt.salt >= 500 ? salt.salt : 1000, bv = bor ? nowBorAt(cs, now) : 0;
     var cv = nowCsi(g('ph'), g('ta'), g('ch'), g('cya'), sv, bv, g('tempF'));
     if (cv !== null) M.r.csi = {v: cv, last: nowTests('csi').pop(), salt: sv, bor: bv};
     // ahead (2026-10-15): the next 48 h from the pH forecast (its rise less the acid feeder) and the water temperature's;
@@ -4666,12 +4699,12 @@ function nowTile(M, def){
     chartO.fut = r.fut; chartO.ahead = 48;
   } else if (k === 'ph') {
     foot = 'Rises about ' + fmtNum(Math.round(r.rate * 24 * 100) / 100) + ' a day<span data-d> without acid</span>';
-    how = nowHow([['Tested ' + nowWhen(r.last), nowFmt('ph', r.last.ph)], r.drop > 0.005 ? ['Acid since then', nowSigned('ph', -r.drop)] : null,
+    how = nowHow([['Tested ' + nowWhen(r.last), nowFmt('ph', r.last.ph)], r.drop > 0.005 ? ['Acid since then', nowSigned('ph', -r.drop)] : null, r.base > 0.005 ? ['Borax since then', nowSigned('ph', r.base)] : null,
       ['Usual rise since then', nowSigned('ph', r.rise)]], ['Now', '≈' + r.v.toFixed(2)]);
     var gp = band;
     if (gp && r.v > gp.hi) {
       var ta1 = M.r.ta ? M.r.ta.v : null, cy1 = M.r.cya ? M.r.cya.v : 0, goal = 7.5;
-      if (ta1) { var lo2 = 0, hi2 = 200; for (var i = 0; i < 40; i++) { var mid = (lo2 + hi2) / 2, dd = nowPhDrop(r.v, ta1, cy1, mid); if (dd === null || dd > r.v - goal) hi2 = mid; else lo2 = mid; }
+      if (ta1) { var lo2 = 0, hi2 = 200; for (var i = 0; i < 40; i++) { var mid = (lo2 + hi2) / 2, dd = nowPhDrop(r.v, ta1, cy1, mid, nowBorAt(M.cs, M.now)); if (dd === null || dd > r.v - goal) hi2 = mid; else lo2 = mid; }
         var ap = nowAcidPct(), agal = Math.ceil(lo2 * NOW_L / 50000 * 36.46 / (ap / 100 * (1 + 0.005 * ap)) / 3785.411784 * 10 - 1e-9) / 10;
         todo = 'To bring it to 7.5: about <b>' + fmtNum(agal) + ' gal acid</b> (' + fmtNum(ap) + '%), diluted.'; }
     } else if (gp && r.v < gp.lo) todo = 'Low. It rises by itself; the acid feeder may be set too high.';
