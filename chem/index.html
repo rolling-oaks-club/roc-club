@@ -7853,8 +7853,9 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       h += '<div class="egrp"><b>' + g[0] + '</b><span>' + g[1] + '</span></div><div class="etiles">' + g[2].map(tile).join('') + '</div>';
     });
+    // the Leslie's switch: Manager level only (a volunteer tapped it by mistake, 2026-10-30); others add a "Leslie's" note
     if (!t) h += '<div class="egrp"><b>Also</b></div><div class="elist"><textarea class="etext" id="eNote" maxlength="1000" placeholder="Note: anything you noticed" aria-label="Note"></textarea>' +
-      '<label class="echk" for="eStore"><span>Tested at Leslie\'s / pool store</span><input type="checkbox" class="esw" role="switch" id="eStore"></label></div>';
+      (isMgr() ? '<label class="echk" for="eStore"><span>Tested at Leslie\'s / pool store</span><input type="checkbox" class="esw" role="switch" id="eStore"></label>' : '') + '</div>';
     return h;
   }
   /** The blue line under the title: "Today, 7:42 PM · Carla" (tap: the date / time row). */
@@ -8300,7 +8301,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       payload = {id: editing ? editing.id : '', when: w.s};
       FIELDS.forEach(function(f){ payload[f[0]] = isNum(r.v[f[0]]) ? r.v[f[0]] : ''; });
-      if (!editing) { payload.note = $('eNote').value; payload.store = $('eStore').checked; }
+      if (!editing) { payload.note = $('eNote').value; payload.store = !!($('eStore') && $('eStore').checked); }
       FIELDS.forEach(function(f){ if (isNum(r.v[f[0]])) chips.push([f[1], fmtNum(r.v[f[0]])]); });
       fn = 'saveTest'; label = 'Test';
     } else {
