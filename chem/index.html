@@ -3660,7 +3660,9 @@ function selectedItems(from, to, withChems, withTests, withNotes){
   if (withTests !== false) (DATA.tests || []).forEach(function(t){ if (hasReading(t) && inRange(t.day, from, to)) items.push({type:'t', ms:t.ms, day:t.day, d:t}); });
   if (withNotes) (DATA.notes || []).forEach(function(n){ if (inRange(n.day, from, to)) items.push({type:'n', ms:n.ms, day:n.day, d:n}); });
   if (withChems) (DATA.chems || []).forEach(function(c){ if (inRange(c.day, from, to)) items.push({type:'c', ms:c.ms, day:c.day, d:c}); });
-  items.sort(function(a,b){ return b.ms - a.ms; });
+  // same minute: the addition goes above the test (test first, then dose), as the server's groups count it
+  var tieRank = {c: 0, n: 1, t: 2};
+  items.sort(function(a,b){ return b.ms - a.ms || tieRank[a.type] - tieRank[b.type]; });
   // consecutive additions of one group become a single 'g' item (newest first, like everything else)
   var out = [];
   items.forEach(function(it){
