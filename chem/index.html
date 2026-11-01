@@ -762,7 +762,9 @@ html{overscroll-behavior-y:none;touch-action:manipulation}   /* manipulation (20
 #printView .ptitle h1{font-size:15pt}
 #printView .prange{font-size:9.5pt;color:#333;white-space:nowrap}
 #printView .pmeta{font-size:10pt;margin:2px 0 8px;color:#333}
-#printView .pmeta.pcost{font-size:8.5pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:3px 0 6px}
+#printView .pmeta.pcost{font-size:8.5pt;white-space:nowrap;display:flex;gap:10px;margin:3px 0 6px}
+#printView .pcost .pcl{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#printView .pcost .pct{flex:none;padding-right:5px}   /* Total: lines up with the Cost column's numbers (cell padding + border) */
 #printView .psech{font-size:7pt;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#555;margin:6px 0 3px}
 #printView .ptiles{display:grid;grid-template-columns:repeat(5,1fr);gap:4pt;margin-bottom:8px}
 #printView .pt{border:1px solid #bdbdbd;border-left:3pt solid #9a9a9a;border-radius:4pt;padding:3pt 5pt;break-inside:avoid;overflow:hidden}
@@ -794,6 +796,7 @@ html{overscroll-behavior-y:none;touch-action:manipulation}   /* manipulation (20
 #printView th.pbor{width:1%}
 #printView td.dt{text-align:left;white-space:nowrap}
 #printView td.dt .pby{float:right;margin-left:6px;font-size:7.5pt;font-weight:700;color:#1f6feb}
+#printView tr.chemrow td.dt .pby{color:#777}
 #printView td.dt .pd{display:inline-block;width:.78in;font-weight:700}
 #printView.yr td.dt .pd{width:.98in}
 #printView tbody tr td.dt{color:#000;font-style:normal}
@@ -2524,10 +2527,12 @@ var CHEM_ICON = {
   flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 14h9"/></svg>'
 };
 function chemIcon(tone){ return '<span class="cic" aria-hidden="true">' + CHEM_ICON[tone === 'ph' || tone === 'ta' ? 'drop' : tone === 'orenda' || tone === 'odd' ? 'bottle' : 'flask'] + '</span>'; }
-function chemCard(c){
+/** The time on an addition line: its OWN time (2026-10-31, was the group's latest), left out when the line above shows the same. */
+function timeHtml(t, above){ return t === above ? '' : '<span class="time">' + esc(t) + '</span>'; }
+function chemCard(c, above){
   return '<div class="card chem r-' + toneOf(c) + '">' + chemIcon(toneOf(c)) + '<div class="cb">' +
     '<div class="row">' + addedHtml(c) + costHtml(c) + rowMk(c) + '</div>' +
-    '<div class="head"><span class="lhs"><span class="time">' + esc(groupInfo(c).time) + '</span>' + whoHtml(c) + catHtml(c.category) + tagHtml(c) + '</span></div></div></div>';
+    '<div class="head"><span class="lhs">' + timeHtml(c.time, above) + whoHtml(c) + catHtml(c.category) + tagHtml(c) + '</span></div></div></div>';
 }
 /** Sums the calculations of several additions that change the same reading (one set of numbers for the block). */
 function blockCalc(items){
@@ -2546,20 +2551,24 @@ function blockKey(c){ return (c.affects || '') + '|' + (c.dir || '') + (c.slow ?
  * Additions that change the same reading (two chlorines) share one label line and one set of calculations; a different
  * kind (acid next to chlorine) gets its own label line, and the colors change at a hard stop.
  */
-function groupCard(items){
-  var gi = groupInfo(items[0]), blocks = [], byKey = {};
-  items.slice().reverse().forEach(function(c){
+function groupCard(items, above){
+  var blocks = [], byKey = {};
+  items.forEach(function(c){                                    // newest first, like the list (2026-10-31, was oldest first)
     var k = blockKey(c), b = byKey[k];
     if (!b){ b = byKey[k] = {aff: AFFECT_LABEL[c.affects] ? c.affects : '', tone: toneOf(c), dir: c.dir, slow: !!c.slow, category: c.category, items: []}; blocks.push(b); }
     b.items.push(c);
   });
   var colorVar = function(b){ return 'var(--k-' + b.tone + ')'; };
+  var prevT = above;
   var html = blocks.map(function(b, i){
+    var ts = []; b.items.forEach(function(c){ if (ts.indexOf(c.time) < 0) ts.push(c.time); });   // newest first
+    var bt = ts.length > 1 ? ts[ts.length - 1].replace(/ [AP]M$/, function(m){ return m === ts[0].slice(-3) ? '' : m; }) + '–' + ts[0] : ts[0];   // "3:19–3:42 PM"
+    var th = timeHtml(bt, prevT); prevT = bt;
     var calc = blockCalc(b.items), pseudo = {affects: b.aff, dir: b.dir, slow: b.slow, what: calc.what, eff: calc.eff, also: calc.also};
     var cur = colorVar(b);
     return '<div class="blk r-' + b.tone + '" style="--c:' + cur + '">' + chemIcon(b.tone) + '<div class="cb">' +
       b.items.map(function(c){ return '<div class="row">' + addedHtml(c) + costHtml(c) + rowMk(c) + '</div>'; }).join('') +
-      '<div class="head"><span class="lhs"><span class="time">' + esc(gi.time) + '</span>' +
+      '<div class="head"><span class="lhs">' + th +
       whoHtml(b.items.filter(function(c){ return c.src === 'Dashboard'; })[0]) + catHtml(b.category) + tagHtml(pseudo) + '</span></div></div></div>';
   }).join('');
   return '<div class="card chem chemg">' + html + '</div>';
@@ -2875,7 +2884,7 @@ function mkPopHtml(btn){
   if (kind === 'entry') {                                        // a dashboard entry without switches: details, then Edit / Delete
     var ek = btn.getAttribute('data-ek');
     return '<div class="poph"><b>' + esc(ek === 'chem' ? 'Added ' + it.summary : ek === 'test' ? 'Test' : 'Note') + '</b></div>' +
-      '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + (ek === 'chem' ? groupInfo(it).time : it.time)) + '</div>' +
+      '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + it.time) + '</div>' +
       (it.w && wxFull(it.w) ? '<div style="color:var(--muted)">' + esc(wxFull(it.w)) + '</div>' : '') +
       (it.by ? '<div style="color:var(--muted)">Entered by ' + esc(fullName(it.by)) + '</div>' : '') +
       mkEdRow(ek, id) + (mkMsg ? '<div class="trkerr">' + esc(mkMsg) + '</div>' : '');
@@ -2887,7 +2896,7 @@ function mkPopHtml(btn){
     ? (on ? 'Dissolves over several days: no instant numbers, left out of predictions, counts on the feeder card.' : 'Counted as added straight to the pool.')
     : (on ? 'Shown with a blue outline and the Leslie\'s label.' : 'Counted as your own test.');
   return '<div class="poph"><b>' + esc(title) + '</b></div>' +
-    '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + (kind === 'slow' ? groupInfo(it).time : it.time)) + '</div>' +
+    '<div style="color:var(--muted)">' + esc(fmtDayRel(it.day) + ', ' + it.time) + '</div>' +
     (it.w && wxFull(it.w) ? '<div style="color:var(--muted)">' + esc(wxFull(it.w)) + '</div>' : '') +
     (it.src === 'Dashboard' && it.by ? '<div style="color:var(--muted)">Entered by ' + esc(fullName(it.by)) + '</div>' : '') +
     '<div class="mksw"><span>' + label + '</span><button type="button" class="tgl' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '" data-mktoggle="' + kind + '"' + (mkBusy ? ' disabled' : '') + '></button></div>' +
@@ -3693,15 +3702,17 @@ function renderList(){
   $('spend').innerHTML = tot ? spendHtml(sp) : '';
   $('summary').classList.toggle('hascost', !!tot);
   if (!items.length){ $('list').innerHTML = '<div class="empty">' + (LEVEL === 'member' ? 'No tests in the last ' + (DATA.memberDays || 7) + ' days.' : 'Nothing recorded in this range.') + '</div>'; return; }
-  var html = '', day = '';
+  var html = '', day = '', above = '';
   items.forEach(function(it){
-    if (it.day !== day){ day = it.day; html += '<div class="day">' + esc(dayWord(day) || (day.slice(0, 4) === todayCentral().slice(0, 4) ? fmtDayLong(day).replace(/, \d{4}$/, '') : fmtDayLong(day))) + '</div>'; }
+    var lastT = above; above = '';
+    if (it.day !== day){ day = it.day; lastT = ''; html += '<div class="day">' + esc(dayWord(day) || (day.slice(0, 4) === todayCentral().slice(0, 4) ? fmtDayLong(day).replace(/, \d{4}$/, '') : fmtDayLong(day))) + '</div>'; }
     if (it.type === 't') html += testCard(it.d);
     else if (it.type === 'n') html += noteCard(it.d);
     else if (it.type === 'w') html += it.html;
     else {
       var pred = state.pred && DATA.preds && DATA.preds[it.gid];
-      var tile = it.list.length > 1 ? groupCard(it.list) : chemCard(it.list[0]);
+      var tile = it.list.length > 1 ? groupCard(it.list, lastT) : chemCard(it.list[0], lastT);
+      above = it.list.length > 1 ? '' : it.list[0].time;          // after a group tile the next line shows its time
       html += pred ? '<div class="pwrap">' + predCard(pred, it.day, it.gid) + '<div class="pfront">' + tile + '</div></div>' : tile;
     }
   });
@@ -5245,9 +5256,10 @@ function buildPrintOnce(o, split){
   var printSpend = showCost ? spendFor(from, to) : null;
   var testCost = showCost && !o.group;   // with chemicals listed separately the test table has no Cost column
   if (printSpend && (printSpend.priced || printSpend.unpriced)){
-    head += '<div class="pmeta pcost"><b>Chemical Use:</b> ' + (printSpend.priced
-      ? spendParts(printSpend).map(function(p, i, all){ return (i === all.length - 1 ? '<b>' : '') + p[0] + ' ' + money(p[1]) + (i === all.length - 1 ? '</b>' : ''); }).join(' &nbsp;·&nbsp; ') + (spendNote(printSpend) ? ' &nbsp;(' + esc(spendNote(printSpend)) + ')' : '')
-      : esc(spendText(printSpend))) + '</div>';
+    var spParts = printSpend.priced ? spendParts(printSpend) : [], spTotal = spParts.pop();   // Total goes on its own at the right
+    head += '<div class="pmeta pcost"><span class="pcl"><b>Chemical Use:</b> ' + (printSpend.priced
+      ? spParts.map(function(p){ return p[0] + ' ' + money(p[1]); }).join(' &nbsp;·&nbsp; ') + (spendNote(printSpend) ? ' &nbsp;(' + esc(spendNote(printSpend)) + ')' : '')
+      : esc(spendText(printSpend))) + '</span>' + (spTotal ? '<b class="pct">' + spTotal[0] + ' ' + money(spTotal[1]) + '</b>' : '') + '</div>';
   }
   if (o.trk && unlocked) head += trkPrintHtml();       // under the title + cost lines, above the log
   var stockHtml = (o.stock && unlocked) ? stockPrintHtml() : '';   // goes at the END: bottom of the last page, above the legend
@@ -5258,12 +5270,13 @@ function buildPrintOnce(o, split){
     PRINT_COLS.map(function(c){ return '<th' + (PRINT_HEADER_TINT ? ' class="r-' + c[0] + '"' : c[0] === 'bor' ? ' class="pbor"' : '') + '>' + (c[0] === 'bor' ? 'Bor' : c[1]) + '</th>'; }).join('') +
     (testCost ? '<th>Cost</th>' : '') + '</tr></thead>';
   var theadB = '<thead><tr><th style="text-align:left">Date / Time</th><th colspan="' + PRINT_COLS.length + '" style="text-align:left">Chemical additions</th>' + (showCost ? '<th>Cost</th>' : '') + '</tr></thead>';
-  // who entered each dashboard test, as initials in the Date / Time cell (2026-10-06): "CC", "AS"; the shared Manager
-  // password "Mgr"; Pool Math tests none. Two people with the same initials get more of their first name ("AnS", "AlS").
+  // who entered each dashboard test or addition, as initials in the Date / Time cell (2026-10-06): "CC", "AS"; the shared Manager
+  // password "Mgr"; Pool Math entries none; additions in grey, Leslie's tests say "Leslie's" instead (2026-11-01).
+  // Two people with the same initials get more of their first name ("AnS", "AlS").
   var ini = {};
   (function(){
     var names = [];
-    tests.forEach(function(t){ if (t.src === 'Dashboard' && t.by){ var f = fullName(t.by); if (names.indexOf(f) < 0) names.push(f); } });
+    tests.filter(function(t){ return !t.store; }).concat(chems).forEach(function(t){ if (t.src === 'Dashboard' && t.by){ var f = fullName(t.by); if (names.indexOf(f) < 0) names.push(f); } });
     function base(n, k){ var w = n.split(/\s+/); return (w[0].slice(0, k).charAt(0).toUpperCase() + w[0].slice(1, k).toLowerCase()) + w.slice(1).map(function(x){ return x.charAt(0).toUpperCase(); }).join(''); }
     names.forEach(function(n){
       if (n === 'Manager') { ini[n] = 'Mgr'; return; }
@@ -5277,7 +5290,7 @@ function buildPrintOnce(o, split){
     if (r.type === 't'){
       var t = r.d;
       var storeBlank = t.store && !dim;   // Leslie's: tint every cell that carries no range color, value or not
-      return '<tr class="{{L}}' + (t.store ? 'storerow ' : '') + (dim ? ' dim' : '') + '"><td class="dt' + (storeBlank ? ' noread' : '') + '"><span class="pd">{{D}}</span><span class="ptm">' + esc(t.time) + '</span>' + (t.src === 'Dashboard' && t.by && ini[fullName(t.by)] ? '<span class="pby" title="Entered by ' + esc(fullName(t.by)) + '">' + esc(ini[fullName(t.by)]) + '</span>' : '') + '</td>' +
+      return '<tr class="{{L}}' + (t.store ? 'storerow ' : '') + (dim ? ' dim' : '') + '"><td class="dt' + (storeBlank ? ' noread' : '') + '"><span class="pd">{{D}}</span><span class="ptm">' + esc(t.time) + '</span>' + (t.store ? '<span class="pby">Leslie\'s</span>' : t.src === 'Dashboard' && t.by && ini[fullName(t.by)] ? '<span class="pby" title="Entered by ' + esc(fullName(t.by)) + '">' + esc(ini[fullName(t.by)]) + '</span>' : '') + '</td>' +
         PRINT_COLS.map(function(c){
           var v = t[c[0]];
           if (!isNum(v)) return '<td' + (storeBlank ? ' class="noread"' : '') + '></td>';
@@ -5295,12 +5308,13 @@ function buildPrintOnce(o, split){
     var c2 = r.d, aff = AFFECT_LABEL[c2.affects] ? c2.affects : '', bi = r.items.slice().sort(function(a, b){ return a.ms - b.ms; });
     var added = bi.map(function(x){ return x.summary; }).join(' + '), what = aff ? '' : printWhat(bi);
     var costs = bi.filter(function(x){ return isNum(x.cost); }), cost = costs.reduce(function(n, x){ return n + x.cost; }, 0);
-    return '<tr class="{{L}}chemrow' + (o.tint ? ' tint' : '') + (aff ? ' r-' + aff : '') + (dim ? ' dim' : '') + '"><td class="dt"><span class="pd">{{D}}</span><span class="ptm">' + esc(groupInfo(c2).time) + '</span></td><td colspan="' + PRINT_COLS.length + '">Added ' + esc(added) +
+    var chemBy = []; bi.forEach(function(x){ var f = x.src === 'Dashboard' && x.by ? ini[fullName(x.by)] : ''; if (f && chemBy.indexOf(f) < 0) chemBy.push(f); });
+    return '<tr class="{{L}}chemrow' + (o.tint ? ' tint' : '') + (aff ? ' r-' + aff : '') + (dim ? ' dim' : '') + '"><td class="dt"><span class="pd">{{D}}</span><span class="ptm">' + esc(c2.time) + '</span>' + (chemBy.length ? '<span class="pby">' + esc(chemBy.join(' ')) + '</span>' : '') + '</td><td colspan="' + PRINT_COLS.length + '">Added ' + esc(added) +
       (aff && r.lead ? '<span class="tag">' + (c2.dir === 'down' ? '↓' : '↑') + ' ' + AFFECT_LABEL[aff] + '</span>' +
         effHtml({affects: c2.affects, slow: c2.slow, eff: r.blk.calc.eff, also: r.blk.calc.also}) : aff ? '' : whatHtml(what)) + '</td>' +
       (showCost ? '<td class="cost">' + (costs.length ? money(cost) : '–') + '</td>' : '') + '</tr>';
   });
-  var meta = rows.map(function(r){ return {day: r.type === 'c' ? groupInfo(r.d).day : r.d.day, date: r.type !== 'p'}; });
+  var meta = rows.map(function(r){ return {day: r.d.day, date: r.type !== 'p'}; });
   var yrs = {}; meta.forEach(function(m){ yrs[m.day.slice(0, 4)] = 1; });
   var multiYear = Object.keys(yrs).length > 1;
   var items = [];
