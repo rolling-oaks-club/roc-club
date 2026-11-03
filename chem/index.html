@@ -1436,6 +1436,11 @@ html.app .etoast{top:calc(env(safe-area-inset-top,0px) + 10px)}
 .jline:first-child{margin-top:2px}
 .jline .ok{color:var(--green);font-weight:700}
 .jline b{color:var(--ink);font-weight:600}
+.jnext .jnl{flex:none}
+.jnext+.jnext{margin-top:2px}
+.jnext+.jnext .jnl{visibility:hidden}
+.jnext .jnn{flex:1 1 auto;min-width:0;margin-left:-3px}
+.jnext .jnt{flex:none;white-space:nowrap}
 .up .trk{display:none !important}
 /* the six tests: always in the same order, each box as wide as its words */
 .tdue.priv{display:flex}
@@ -3452,7 +3457,7 @@ function renderUpDetails(ts){
 var upFullOpen = false;   // "Full stock" list under Details; closed again on every load
 /** Coming up, top part (2026-10-06): jobs due now or late (Superchlorinate, feeders, products) as rows in a white card,
  *  late first; at most 3 rows, then "+N more" (opens Details). Under it: "All jobs done" when nothing is due, and
- *  "Next: … in N days". Returns true when there is anything to show. Tap a row = its popover (data-ti). */
+ *  "Next: … in N days", a row per job. Returns true when there is anything to show. Tap a row = its popover (data-ti). */
 function renderJobs(ts){
   var ord = trkOrder(ts), all = ord.main.concat(ord.extra), today = todayCentral();
   function late(t){ var s = trkState(t), span = trkSpan(t, s); return span != null && s.d != null ? s.dd - span : 0; }
@@ -3486,7 +3491,8 @@ function renderJobs(ts){
     if (fe && fe.empty && due.indexOf(i) < 0) lines.push('<div class="jline"><span>' + (feedJob(ts[i]) ? 'Cal-hypo' : 'Acid') + ' feeder probably empty since ' + esc(trkDay(fe.day)) + '</span></div>');
   });
   if (!rows.length && all.length) lines.push('<div class="jline"><span><span class="ok">✓</span> <b>All jobs done</b></span></div>');
-  if (best !== null) lines.push('<div class="jline"><span>Next: ' + esc(names.slice(0, 2).join(' · ')) + '</span><span>' + (best <= 1 ? 'tomorrow' : 'in ' + best + ' days') + '</span></div>');
+  // one row per job; "Next:" only on the first, the others line up under it (2026-11-02)
+  names.forEach(function(n, k){ lines.push('<div class="jline jnext"><span class="jnl"' + (k ? ' aria-hidden="true"' : '') + '>Next:</span><span class="jnn">' + esc(n) + '</span><span class="jnt">' + (best <= 1 ? 'tomorrow' : 'in ' + best + ' days') + '</span></div>'); });
   $('jlines').innerHTML = lines.join('');
   return !!(rows.length || lines.length);
 }
