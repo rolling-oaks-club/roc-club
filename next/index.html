@@ -411,14 +411,16 @@ dialog.pwdlg .bk-link .bk-in{margin:0;font-size:14px;padding:8px}
 dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
 .bk-fixed{font-size:.78rem;color:var(--paper-2);margin-top:6px}
 .bk-ed>.bk-fixed:first-child{margin-top:0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-/* computers: two equal columns, the conditions on the left (they stay in view, scrolling on their own if long) and every
-   question on the right, like a paper agreement */
+/* computers: two equal columns, the conditions and the signature on the left (all shown, no box to scroll inside) and the
+   other questions on the right, like a paper agreement */
 @media (min-width: 900px){
   dialog.pwdlg.pop.wide#bookDlg{max-width:1040px}
   #bkFields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-items:start}
   #bkFields>*{grid-column:2}
-  #bkFields>.bk-cond{grid-column:1;grid-row:span 40;position:sticky;top:0;max-height:calc(100dvh - 200px);overflow-y:auto;overscroll-behavior:contain}
-  #bkFields>.bk-cond,#bkFields>.bk-when>.bk-q:first-child{margin-top:4px}
+  #bkFields>.bk-left{grid-column:1;grid-row:span 40}
+  #bkFields .bk-left .bk-terms{font-size:.95rem;line-height:1.5}
+  #bkFields .bk-left .bk-terms p{font-size:.95rem}
+  #bkFields .bk-left>.bk-cond,#bkFields>.bk-when>.bk-q:first-child{margin-top:4px}
   #bkFields .bk-cal{max-width:none}
   #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
 }
@@ -1886,13 +1888,11 @@ html.vid .ripples{display:none}
   function bkDraw(){
     var box = $('bkFields'); box.textContent = '';
     if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: nothing you send here goes anywhere. Booked days are not shown.'));
-    if (BK.form.conditions){ var cw = box.appendChild(el('div', 'bk-q bk-cond')); cw.appendChild(el('div', 'bk-l', 'Conditions')); cw.appendChild(termsEl(BK.form.conditions)); }
-    // the email and then the signature go right above "Anything else" (the event details come first)
+    var left = box.appendChild(el('div', 'bk-left'));   // the conditions and the signature under them (the left column on computers)
+    if (BK.form.conditions){ var cw = left.appendChild(el('div', 'bk-q bk-cond')); cw.appendChild(el('div', 'bk-l', 'Conditions')); cw.appendChild(termsEl(BK.form.conditions)); }
+    // the email goes right above "Anything else" (the event details come first)
     var qs = BK.form.questions.slice(), at = function(id){ return qs.map(function(q){ return q.id; }).indexOf(id); };
-    if (at('notes') >= 0) ['contact', 'name'].forEach(function(id){
-      if (at(id) < 0) return;
-      var q = qs.splice(at(id), 1)[0]; qs.splice(at('notes'), 0, q);
-    });
+    if (at('notes') >= 0 && at('contact') >= 0){ var em = qs.splice(at('contact'), 1)[0]; qs.splice(at('notes'), 0, em); }
     qs.forEach(function(q){
       if (q.type === 'payment') return;   // that's the two send buttons at the bottom
       var w = el('div', 'bk-q'), fid = 'bkq_' + q.id, lab = el('label', 'bk-l', q.label), inp = null;
@@ -1924,7 +1924,8 @@ html.vid .ripples{display:none}
       if (q.type === 'date' || q.type === 'time' || q.id === 'facilities' || q.links){   // facility, date and times sit together (beside the rest on computers)
         var when = box.querySelector('.bk-when') || box.appendChild(el('div', 'bk-when'));
         when.appendChild(w);
-      } else box.appendChild(w);
+      } else if (q.id === 'name') left.appendChild(w);
+      else box.appendChild(w);
     });
     box.appendChild(el('p', 'bk-paynote bk-sendnote', 'To send your request, choose how you will pay below.'));
     var st = $('bkq_start'), en = $('bkq_end');
