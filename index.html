@@ -9,7 +9,7 @@
 <script>
 // Server calls: this page is not inside Apps Script, so google.script.run.x(...) is sent to the web app's doPost.
 (function(){
-  var API = 'https://script.google.com/macros/s/AKfycbywGYJQBb5hk5dVoUE6bCQ_FwaSUun_pYGMAinYy0VgBIFaDwOoEXwdHP48EzFSmWy97A/exec', FNS = ["whoAmI","getRulesInfo","uploadRulesPdf","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","saveSiteText","getSiteText","uploadMembershipForm","accessChangePassword","volunteerSignUp","accessVolunteerList","accessVolunteerAction","accessNameCheck","accessAliases"];
+  var API = 'https://script.google.com/macros/s/AKfycbywGYJQBb5hk5dVoUE6bCQ_FwaSUun_pYGMAinYy0VgBIFaDwOoEXwdHP48EzFSmWy97A/exec', FNS = ["whoAmI","getRulesInfo","uploadRulesPdf","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","saveSiteText","getSiteText","uploadMembershipForm","accessChangePassword","volunteerSignUp","accessVolunteerList","accessVolunteerAction","accessNameCheck","accessAliases","getBookingForm","submitBooking","bookingList","bookingAction","saveBookingForm"];
   // Calls that only read (sign-in, data, calendar) are tried up to twice more when the reply is lost on the way back
   // (Safari: "Load failed"; it happens now and then with Apps Script). Saves are never repeated.
   var SAFE = ["whoAmI","unlock","publicData","importProgress","getRulesInfo","getCalendarMonths","getUpcomingEvents","getNextBoardMeeting","getSiteText","accessVolunteerList","accessNameCheck"];
@@ -350,6 +350,69 @@ dialog.pwdlg .popfoot .err,dialog.pwdlg .popfoot .ok{flex:1 0 100%;margin:0;min-
 dialog.pwdlg .popfoot .err:empty,dialog.pwdlg .popfoot .ok:empty{display:none}
 dialog.pwdlg .popbody .err:empty,dialog.pwdlg .popbody .ok:empty{min-height:0;margin:0}
 @media (prefers-reduced-motion:reduce){.pophead{transition:none}}
+/* Clubhouse booking form, the Manager's Bookings list and the form editor (2026-11-09) */
+.bk-terms{font-size:1rem;line-height:1.6;color:var(--paper);background:rgba(255,248,236,.05);border-left:3px solid var(--oak);border-radius:4px 12px 12px 4px;padding:14px 16px 4px}
+.bk-terms p{margin:0 0 14px;color:var(--paper);font-size:1rem}
+.bk-terms ul{margin:0 0 14px;padding-left:20px}
+.bk-terms li{margin:0 0 8px;padding-left:2px}
+.bk-terms li::marker{color:var(--oak)}
+.bk-terms b{color:var(--oak);font-weight:600}
+.bk-terms p:last-child:not(:first-child){color:var(--paper-2);font-style:italic}
+dialog.pwdlg input.bk-in.bk-sign{font-family:"Dancing Script","Snell Roundhand","Segoe Script",cursive;font-size:30px;line-height:1.2;padding:6px 4px 2px;background:none;border:0;border-bottom:1.5px solid var(--paper-2);border-radius:0}
+dialog.pwdlg input.bk-in.bk-sign:focus{outline:none;border-bottom-color:var(--oak)}
+.bk-hint{font-size:.8rem;color:var(--paper-2);margin:6px 0 0;line-height:1.4}
+.bk-q{margin-top:18px}
+dialog.pwdlg .bk-l{display:block;margin:0 0 4px;color:var(--paper);font-size:.95rem;font-weight:600;line-height:1.35}
+.bk-l .req{color:var(--oak)}
+.bk-help{font-size:.82rem;color:var(--paper-2);margin:0 0 6px;line-height:1.4}
+dialog.pwdlg .bk-in{width:100%;box-sizing:border-box;background:rgba(255,248,236,.08);border:1px solid var(--glass-line);border-radius:8px;padding:10px;color:var(--paper);font:inherit;font-size:16px;color-scheme:dark}
+dialog.pwdlg textarea.bk-in{min-height:84px;resize:vertical;line-height:1.4}
+dialog.pwdlg textarea.bk-in.bk-lab{min-height:0;font-weight:600}
+dialog.pwdlg label.bk-opt{display:flex;align-items:center;gap:10px;margin:6px 0 0;padding:10px 12px;border:1px solid var(--glass-line);border-radius:10px;cursor:pointer;color:var(--paper);font-size:.95rem}
+.bk-opt input{accent-color:var(--oak);width:18px;height:18px;margin:0;flex:0 0 auto}
+.bk-opt:has(input:checked){border-color:var(--oak);background:rgba(214,154,74,.14)}
+.bk-cal{border:1px solid var(--glass-line);border-radius:12px;padding:8px 8px 10px;max-width:360px}
+.bk-calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.bk-calh b{font-size:.95rem;color:var(--paper)}
+.bk-calh button{border:0;background:rgba(255,248,236,.1);color:var(--paper);width:36px;height:36px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;padding:0}
+.bk-calh button:disabled{opacity:.25;cursor:default}
+.bk-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.bk-grid .dow{font-size:.72rem;color:var(--paper-2);padding:2px 0}
+.bk-grid button{aspect-ratio:1;min-height:36px;border:0;border-radius:8px;background:rgba(255,248,236,.1);color:var(--paper);font:inherit;font-size:.92rem;cursor:pointer;padding:0}
+.bk-grid button:disabled{background:none;color:rgba(255,248,236,.25);cursor:default}
+.bk-grid button.booked{background:rgba(226,131,107,.1);color:rgba(255,248,236,.38);text-decoration:line-through}
+.bk-grid button.sel{background:var(--oak);color:var(--bark);font-weight:700}
+.bk-calk{font-size:.8rem;color:var(--paper-2);margin-top:8px}
+.bk-picked{font-size:.92rem;color:var(--paper);margin-top:4px;font-weight:600}
+.bk-done{color:var(--paper);font-size:1rem;line-height:1.55;padding:6px 0}
+.bk-pay{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;margin:6px 0 10px;border-radius:12px;background:var(--oak);color:var(--bark);font-weight:700;font-size:1.05rem;text-decoration:none}
+.bk-paynote{font-size:.85rem;color:var(--paper-2);line-height:1.45}
+.bk-link{display:flex;align-items:center;gap:8px;margin-top:6px}
+.bk-link span{flex:0 0 auto;max-width:45%;font-size:.8rem;color:var(--paper-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog.pwdlg .bk-link .bk-in{margin:0;font-size:14px;padding:8px}
+.bk-prev{background:rgba(214,154,74,.15);border:1px solid var(--oak);border-radius:10px;padding:8px 12px;font-size:.88rem;color:var(--paper);margin-bottom:10px}
+.bk-card .vol-sub{word-break:normal;overflow-wrap:anywhere}
+.bk-card .vol-sub b{color:var(--paper);font-weight:600}
+.bk-tag{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:2px 6px;margin-left:8px;vertical-align:2px;background:rgba(159,202,140,.18);color:#9fca8c}
+.vol-btns a{border-radius:8px;border:1px solid var(--glass-line);background:var(--glass);color:var(--paper);padding:7px 10px;font-size:.85rem;text-decoration:none}
+.vol-btns button:disabled{opacity:.35;cursor:default}
+.bk-ed{border:1px solid var(--glass-line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.bk-ed .bk-in{margin-top:6px}
+.bk-edrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
+dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
+.bk-fixed{font-size:.78rem;color:var(--paper-2);margin-top:6px}
+.bk-ed>.bk-fixed:first-child{margin-top:0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+/* computers: wider form, the date and times in their own column beside the conditions and questions */
+@media (min-width: 900px){
+  dialog.pwdlg.pop.wide#bookDlg{max-width:980px}
+  #bkFields{display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:28px;align-items:start}
+  #bkFields>*{grid-column:1}
+  #bkFields>.bk-when{grid-column:2;grid-row:1/span 40;position:sticky;top:0;padding-top:4px}
+  #bkFields>.bk-when>.bk-q:first-child{margin-top:0}
+  #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
+}
+dialog.pwdlg label.bk-chk{display:flex;align-items:center;gap:6px;margin:0;color:var(--paper);font-size:.9rem;cursor:pointer}
+.bk-chk input{accent-color:var(--oak);width:18px;height:18px;margin:0}
 
 /* Tall, narrow screens (phones): the photo is scaled so the beam inscription spans the screen width (minus 16px each side),
    then placed so the inscription (and the tree above it) is centered left-to-right and the tree sits mid-screen,
@@ -820,7 +883,7 @@ html.vid .ripples{display:none}
         </div>
       </div>
 
-      <a class="card" id="signupCard" href="https://forms.gle/5uCfK53v96GDidWY9" target="_blank" rel="noopener">
+      <a class="card" id="signupCard" href="#">
         <h2>Clubhouse Sign-Up</h2>
         <p><span data-edit="signupText">Reserve the clubhouse for your event.</span></p>
         <span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span>
@@ -889,6 +952,7 @@ html.vid .ripples{display:none}
           <button type="button" class="lockbtn si-mgr" id="editTextBtn">Edit page text</button>
           <button type="button" class="lockbtn si-brd" id="importOpenBtn">Update Rules PDF</button>
           <button type="button" class="lockbtn si-mgr" id="volBtn">Volunteers</button>
+          <button type="button" class="lockbtn si-mgr" id="bkListBtn">Bookings</button>
           <button type="button" class="lockbtn si-vol" id="chgPwBtn">My login</button>
           <button type="button" class="lockbtn" id="chemRelockBtn">Sign out</button>
         </span>
@@ -995,7 +1059,7 @@ html.vid .ripples{display:none}
   </div>
   <div class="popfoot" id="memAsk">
     <button type="button" id="memNo">No</button>
-    <a class="primary" id="memYes" href="https://forms.gle/5uCfK53v96GDidWY9" target="_blank" rel="noopener">Yes</a>
+    <button type="button" class="primary" id="memYes">Yes</button>
   </div>
   <div class="popfoot" id="memNoFoot" hidden><button type="button" class="primary" id="memUpload">Upload form</button></div>
 </dialog>
@@ -1027,6 +1091,35 @@ html.vid .ripples{display:none}
   <div class="ok" id="volOk"></div>
   <div class="vol-list" id="volList"></div>
   </div>
+</dialog>
+
+<dialog id="bookDlg" class="pwdlg pop wide" aria-labelledby="bkH">
+  <div class="pophead"><div><h3 id="bkH">Clubhouse Rental Agreement</h3><span class="popsub">Rolling Oaks Club · please read the conditions, then fill in the form</span></div><button type="button" class="popx" id="bkClose" aria-label="Close">×</button></div>
+  <div class="popbody"><form id="bkForm" novalidate><div id="bkFields"></div></form></div>
+  <div class="popfoot"><div class="err" id="bkErr" role="alert"></div><button type="submit" form="bkForm" class="primary" id="bkGo">Pay by card</button><button type="submit" form="bkForm" id="bkGo2">Pay by cash/check</button></div>
+</dialog>
+
+<dialog id="bkListDlg" class="pwdlg pop wide" aria-labelledby="bklH">
+  <div class="pophead"><div><h3 id="bklH">Clubhouse bookings</h3><span class="popsub">Requests are on the calendar as "Pending" until you approve them. You can rename them in Google Calendar.</span></div><button type="button" class="popx" id="bklClose" aria-label="Close">×</button></div>
+  <div class="popbody">
+  <div class="vol-btns"><button type="button" id="bkEditBtn">Edit booking form</button><a id="bkSheet" href="#" target="_blank" rel="noopener">Open the sheet</a></div>
+  <div class="err" id="bklErr" role="alert"></div>
+  <div class="ok" id="bklOk"></div>
+  <div class="vol-list" id="bklList"></div>
+  </div>
+</dialog>
+
+<dialog id="bkEditDlg" class="pwdlg pop wide" aria-labelledby="bkeH">
+  <div class="pophead"><div><h3 id="bkeH">Edit booking form</h3><span class="popsub">Your changes show on the form as soon as you save. New questions get their own column on the sheet.</span></div><button type="button" class="popx" id="bkeClose" aria-label="Close">×</button></div>
+  <div class="popbody">
+  <div class="popsec">Rental conditions</div>
+  <textarea class="bk-in" id="bkeTerms" rows="12" maxlength="8000"></textarea>
+  <div class="bk-hint">Leave an empty line between paragraphs. Start a line with - (a dash and a space) to make it a bullet point. Put **two stars** on each side of words to make them bold.</div>
+  <div class="popsec">Questions</div>
+  <div id="bkeList"></div>
+  <div class="vol-btns"><button type="button" id="bkeAdd">+ Add a question</button><button type="button" id="bkePrev">Try the form</button></div>
+  </div>
+  <div class="popfoot"><div class="err" id="bkeErr" role="alert"></div><div class="ok" id="bkeOk"></div><button type="button" class="primary" id="bkeSave">Save</button></div>
 </dialog>
 
 <dialog id="chgDlg" class="pwdlg pop" aria-labelledby="chgH">
@@ -1105,7 +1198,7 @@ html.vid .ripples{display:none}
     google.script.run.withSuccessHandler(function(r){
       if (r && r.ok){ var keep = r.pass || code; CODE = keep; saveCode(keep, r.level, r.who); setLevel(r.level, r.who); }
       if (r && r.ok){ document.body.classList.toggle('is-vol', !!r.vol); volName = r.vol ? r.who : ''; }   // own login: My login
-      if (r && r.ok && window.rocSetWaiting){ rocSetWaiting(r.level === 'manager' ? r.pending : 0); rocVolunteersWanted(r.level); }
+      if (r && r.ok && window.rocSetWaiting){ rocSetWaiting(r.level === 'manager' ? r.pending : 0, r.level === 'manager' ? r.bookings : 0); rocVolunteersWanted(r.level); }
       else if (how === 'wrap'){
         if (r && r.why === 'wrong'){ wrapSend({roc: 'forget'}); if (CODE === code){ CODE = ''; setLevel('public'); } }  // shown early, then turned out wrong
         if (CODE) wrapSend({roc: 'save', code: CODE});
@@ -1140,7 +1233,7 @@ html.vid .ripples{display:none}
     memAsk.hidden = false; memNoMsg.hidden = true; $('memNoFoot').hidden = true; $('memH').textContent = 'Are you a current year member?';
     memberDlg.showModal();
   });
-  $('memYes').addEventListener('click', function(){ memberDlg.close(); });
+  $('memYes').addEventListener('click', function(){ memberDlg.close(); openBooking(); });
   $('memNo').addEventListener('click', function(){
     var h = rulesCard.getAttribute('href');
     if (h && h !== '#') $('memFormLink').setAttribute('href', h);
@@ -1577,13 +1670,20 @@ html.vid .ripples{display:none}
   }
   function openVolunteers(){ $('volList').textContent = 'Loading…'; volDlg.showModal(); volLoad(''); }
   $('volBtn').addEventListener('click', openVolunteers);
-  // the Manager's notice: "Volunteers (2 waiting)" and a number on the phone Menu button
+  // the Manager's notice: "Volunteers (2 waiting)", "Bookings (1 waiting)" and their total on the phone Menu button
+  var volWait = 0, bkWait = 0;
   function setWaiting(n){
-    n = Number(n) || 0;
-    $('volBtn').innerHTML = 'Volunteers' + (n ? ' <span class="vol-wait">(' + n + ' waiting)</span>' : '');
-    $('memMenuDot').textContent = n; $('memMenuDot').hidden = !n || !document.body.classList.contains('lvl-manager');
+    volWait = Number(n) || 0;
+    $('volBtn').innerHTML = 'Volunteers' + (volWait ? ' <span class="vol-wait">(' + volWait + ' waiting)</span>' : '');
+    menuDot();
   }
-  window.rocSetWaiting = setWaiting;
+  function setBookWaiting(n){
+    bkWait = Number(n) || 0;
+    $('bkListBtn').innerHTML = 'Bookings' + (bkWait ? ' <span class="vol-wait">(' + bkWait + ' waiting)</span>' : '');
+    menuDot();
+  }
+  function menuDot(){ var n = volWait + bkWait; $('memMenuDot').textContent = n; $('memMenuDot').hidden = !n || !document.body.classList.contains('lvl-manager'); }
+  window.rocSetWaiting = function(n, nb){ setWaiting(n); setBookWaiting(nb); };
   $('memActions').addEventListener('click', function(e){   // a menu item was tapped: close the phone menu behind it
     if (e.target.closest('.lockbtn')){ $('memMenuBtn').parentNode.classList.remove('menu-open'); $('memMenuBtn').setAttribute('aria-expanded', 'false'); }
   });
@@ -1593,10 +1693,390 @@ html.vid .ripples{display:none}
     $('memMenuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
   });
   // ?volunteers (from the Volunteers item in the dashboards' menu): open the screen once the Manager sign-in is confirmed
-  var wantVolunteers = /[?&]volunteers\b/.test(location.search);
-  if (wantVolunteers) { try { history.replaceState(null, '', location.pathname); } catch(x){} }
-  window.rocVolunteersWanted = function(level){ if (wantVolunteers && level === 'manager'){ wantVolunteers = false; setTimeout(openVolunteers, 300); } };
+  // ?bookings (the link in the booking emails) opens the Bookings list the same way
+  var wantVolunteers = /[?&]volunteers\b/.test(location.search), wantBookings = /[?&]bookings\b/.test(location.search);
+  if (wantVolunteers || wantBookings) { try { history.replaceState(null, '', location.pathname); } catch(x){} }
+  window.rocVolunteersWanted = function(level){
+    if (level !== 'manager') return;
+    if (wantVolunteers){ wantVolunteers = false; setTimeout(openVolunteers, 300); }
+    if (wantBookings){ wantBookings = false; setTimeout(openBookings, 300); }
+  };
   $('volClose').addEventListener('click', function(){ volDlg.close(); });
+
+  // Clubhouse Sign-Up: our own booking form (getBookingForm / submitBooking in Code.gs, 2026-11-09; it replaced the Google
+  // Form). The questions come from the server (the Manager changes them in Edit booking form); every day that has anything
+  // on the Clubhouse Bookings calendar is crossed out. Answers are put on the page as text only.
+  var bookDlg = $('bookDlg'), BK = null, bkSel = '', bkMonth = null, bkDone = false, bkPreview = false, bkPayWith = 'card';
+  // two send buttons: which one was pressed (Enter in a box counts as the first, Pay by card)
+  $('bkGo').addEventListener('click', function(){ bkPayWith = 'card'; });
+  $('bkGo2').addEventListener('click', function(){ bkPayWith = 'cash'; });
+  function bkButtons(state){   // 'form' | 'sending' | 'done'
+    var g = $('bkGo'), g2 = $('bkGo2');
+    g.disabled = g2.disabled = state === 'sending';
+    g2.hidden = state === 'done';
+    if (state === 'form'){ g.textContent = 'Pay by card'; g2.textContent = 'Pay by cash/check'; g.classList.add('primary'); }
+    if (state === 'sending') (bkPayWith === 'cash' ? g2 : g).textContent = 'Sending…';
+    if (state === 'done') g.textContent = 'Close';
+  }
+  var DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function pad2(n){ return ('0' + n).slice(-2); }
+  function isoParts(iso){ var p = iso.split('-').map(Number); return [p[0], p[1] - 1, p[2]]; }
+  function niceDay(iso){ var p = isoParts(iso); return new Date(p[0], p[1], p[2]).toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'}); }
+  function timeList(from, to){   // minutes after midnight, every half hour -> [["18:30", "6:30 PM"], …]
+    var out = [];
+    for (var m = from; m <= to; m += 30){
+      var h = Math.floor(m / 60), mm = pad2(m % 60);
+      out.push([pad2(h) + ':' + mm, (h % 12 || 12) + ':' + mm + (h < 12 || h === 24 ? ' AM' : ' PM') + (h === 24 ? ' (midnight)' : '')]);
+    }
+    return out;
+  }
+  // The conditions, as the Manager typed them: an empty line = new paragraph, "- " = bullet point, **words** = bold (text only, never HTML)
+  function termsEl(text){
+    var box = el('div', 'bk-terms');
+    function inline(node, t){ t.split(/\*\*(.+?)\*\*/).forEach(function(part, i){ node.appendChild(i % 2 ? el('b', '', part) : document.createTextNode(part)); }); return node; }
+    text.split(/\n\s*\n/).forEach(function(par){
+      var list = null, p = null;
+      par.split('\n').forEach(function(line){
+        var m = /^\s*[-•*]\s+(.*)$/.exec(line);
+        if (m){ p = null; if (!list) list = box.appendChild(el('ul')); list.appendChild(inline(el('li'), m[1])); return; }
+        if (!line.trim()) return;
+        list = null;
+        if (p){ p.appendChild(el('br')); inline(p, line.trim()); } else p = box.appendChild(inline(el('p'), line.trim()));
+      });
+    });
+    return box;
+  }
+  function bkCal(){
+    var outer = el('div', 'bk-calwrap'), wrap = el('div', 'bk-cal'), head = el('div', 'bk-calh'), title = el('b'), grid = el('div', 'bk-grid');
+    var prev = el('button', '', '‹'), next = el('button', '', '›'), picked = el('div', 'bk-picked'), booked = {};
+    prev.type = next.type = 'button'; prev.setAttribute('aria-label', 'Previous month'); next.setAttribute('aria-label', 'Next month');
+    head.appendChild(prev); head.appendChild(title); head.appendChild(next); wrap.appendChild(head); wrap.appendChild(grid);
+    outer.appendChild(wrap); outer.appendChild(el('div', 'bk-calk', 'Crossed-out days are already booked.')); outer.appendChild(picked);
+    (BK.booked || []).forEach(function(d){ booked[d] = 1; });
+    if (booked[bkSel]) bkSel = '';
+    if (!bkMonth){ var f = isoParts(bkSel || BK.from); bkMonth = [f[0], f[1]]; }
+    function draw(){
+      var cur = bkMonth[0] + '-' + pad2(bkMonth[1] + 1);
+      grid.textContent = ''; title.textContent = MON[bkMonth[1]] + ' ' + bkMonth[0];
+      prev.disabled = cur <= BK.from.slice(0, 7); next.disabled = cur >= BK.to.slice(0, 7);
+      DOW.forEach(function(d){ grid.appendChild(el('div', 'dow', d)); });
+      var first = new Date(bkMonth[0], bkMonth[1], 1).getDay(), n = new Date(bkMonth[0], bkMonth[1] + 1, 0).getDate();
+      for (var i = 0; i < first; i++) grid.appendChild(el('span'));
+      for (var d = 1; d <= n; d++){
+        var iso = cur + '-' + pad2(d), b = el('button', '', String(d));
+        b.type = 'button';
+        if (iso < BK.from || iso > BK.to) b.disabled = true;
+        else if (booked[iso]){ b.disabled = true; b.className = 'booked'; b.setAttribute('aria-label', d + ', already booked'); }
+        else {
+          if (iso === bkSel) b.className = 'sel';
+          b.addEventListener('click', (function(iso){ return function(){ bkSel = iso; $('bkErr').textContent = ''; draw(); }; })(iso));
+        }
+        grid.appendChild(b);
+      }
+      picked.textContent = bkSel ? niceDay(bkSel) : '';
+    }
+    function move(k){ var t = new Date(bkMonth[0], bkMonth[1] + k, 1); bkMonth = [t.getFullYear(), t.getMonth()]; draw(); }
+    prev.addEventListener('click', function(){ move(-1); });
+    next.addEventListener('click', function(){ move(1); });
+    draw();
+    return outer;
+  }
+  function bkDraw(){
+    var box = $('bkFields'); box.textContent = '';
+    if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: nothing you send here goes anywhere. Booked days are not shown.'));
+    if (BK.form.conditions){ box.appendChild(el('div', 'popsec', 'Conditions')); box.appendChild(termsEl(BK.form.conditions)); }
+    BK.form.questions.forEach(function(q){
+      if (q.type === 'payment') return;   // that's the two send buttons at the bottom
+      var w = el('div', 'bk-q'), fid = 'bkq_' + q.id, lab = el('label', 'bk-l', q.label), inp = null;
+      w.setAttribute('data-q', q.id);
+      if (q.required) lab.appendChild(el('span', 'req', ' *'));
+      w.appendChild(lab);
+      if (q.help) w.appendChild(el('div', 'bk-help', q.help));
+      if (q.type === 'long'){ inp = el('textarea', 'bk-in'); inp.maxLength = 2000; }
+      else if (q.type === 'choice' || q.type === 'checks' || q.type === 'yesno' || q.type === 'payment'){
+        (q.type === 'yesno' ? ['Yes', 'No'] : q.options).forEach(function(o){
+          var l = el('label', 'bk-opt'), i = el('input');
+          i.type = q.type === 'checks' ? 'checkbox' : 'radio'; i.name = fid; i.value = o;
+          l.appendChild(i); l.appendChild(el('span', '', o)); w.appendChild(l);
+        });
+      }
+      else if (q.type === 'date') w.appendChild(bkCal());
+      else if (q.type === 'time'){
+        inp = el('select', 'bk-in');
+        inp.appendChild(el('option', '', 'Choose a time')).value = '';
+        timeList(q.id === 'end' ? 390 : 360, q.id === 'end' ? 1440 : 1410).forEach(function(t){ var o = el('option', '', t[1]); o.value = t[0]; inp.appendChild(o); });
+      }
+      else {
+        inp = el('input', 'bk-in'); inp.type = 'text'; inp.maxLength = 300;
+        if (q.type === 'number'){ inp.inputMode = 'numeric'; inp.maxLength = 5; }
+        if (q.type === 'name'){ inp.autocomplete = 'name'; inp.className += ' bk-sign'; inp.placeholder = 'Type your name to sign'; }
+        if (q.type === 'contact'){ inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email'; inp.maxLength = 100; inp.setAttribute('autocapitalize', 'off'); }
+      }
+      if (inp){ inp.id = fid; lab.htmlFor = fid; w.appendChild(inp); }
+      if (q.type === 'date' || q.type === 'time'){   // date and times sit together (beside the rest on computers)
+        var when = box.querySelector('.bk-when') || box.appendChild(el('div', 'bk-when'));
+        when.appendChild(w);
+      } else box.appendChild(w);
+    });
+    box.appendChild(el('p', 'bk-paynote bk-sendnote', 'To send your request, choose how you will pay below.'));
+    var st = $('bkq_start'), en = $('bkq_end');
+    if (st && en) st.addEventListener('change', function(){   // the usual 4 hour block, if the end isn't picked yet
+      if (en.value || !st.value) return;
+      var t = st.value.split(':').map(Number), m = Math.min(t[0] * 60 + t[1] + 240, 1440);
+      en.value = pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+    });
+  }
+  // Trying the form only (the server works this out for real requests): bookPayFor_ in Code.gs
+  function payFor(ans){
+    var out = {card: false, link: '', amount: '', note: ''};
+    BK.form.questions.forEach(function(q){ if (q.type === 'payment'){ out.card = ans[q.id] === q.options[0]; out.note = q.note || ''; } });
+    BK.form.questions.some(function(q){
+      if (q.type !== 'choice' || !q.links || !q.links[ans[q.id]]) return false;
+      if (out.card) out.link = q.links[ans[q.id]];
+      var m = /\$\s?\d+(?:\.\d\d)?/.exec(ans[q.id]); out.amount = m ? m[0].replace(/\s/, '') : '';
+      return true;
+    });
+    if (out.card) out.note = '';
+    return out;
+  }
+  function bkAnswers(){
+    var ans = {}, miss = null;
+    BK.form.questions.forEach(function(q){
+      var v, sel = 'input[name="bkq_' + q.id + '"]';
+      if (q.type === 'payment'){ ans[q.id] = q.options[bkPayWith === 'cash' ? 1 : 0]; return; }
+      if (q.type === 'date') v = bkSel;
+      else if (q.type === 'checks') v = Array.prototype.map.call(bookDlg.querySelectorAll(sel + ':checked'), function(x){ return x.value; });
+      else if (q.type === 'choice' || q.type === 'yesno' || q.type === 'payment'){ var c = bookDlg.querySelector(sel + ':checked'); v = c ? c.value : ''; }
+      else v = ($('bkq_' + q.id).value || '').trim();
+      ans[q.id] = v;
+      if (q.required && !miss && (Array.isArray(v) ? !v.length : !v)) miss = q;
+    });
+    return {ans: ans, miss: miss};
+  }
+  window.openBooking = openBooking;
+  function openBooking(previewForm){
+    if (!document.getElementById('bkFont')){   // the signature handwriting, loaded only when the form opens
+      var f = document.createElement('link'); f.id = 'bkFont'; f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&display=swap'; document.head.appendChild(f);
+    }
+    bkDone = false; bkSel = ''; bkMonth = null; bkPreview = !!previewForm;
+    $('bkErr').textContent = ''; bkButtons('form'); bkPayWith = 'card';
+    $('bkFields').textContent = 'Loading…'; bookDlg.showModal();
+    if (previewForm){
+      var t = new Date(Date.now() + 864e5), y = new Date(Date.now() + 366 * 864e5);
+      var iso = function(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
+      BK = {form: previewForm, booked: [], from: iso(t), to: iso(y)}; bkDraw(); return;
+    }
+    $('bkGo').disabled = $('bkGo2').disabled = true;
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || !r.ok){ $('bkFields').textContent = ''; $('bkErr').textContent = (r && r.message) || 'Could not load the form.'; return; }
+      BK = r; bkDraw(); $('bkGo').disabled = $('bkGo2').disabled = false;
+    }).withFailureHandler(function(x){ $('bkFields').textContent = ''; $('bkErr').textContent = 'Could not load the form (' + ((x && x.message) || x) + '). Please try again.'; }).getBookingForm();
+  }
+  $('bkForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if (bkDone){ bookDlg.close(); return; }
+    if (!BK) return;
+    var a = bkAnswers();
+    if (a.miss){
+      $('bkErr').textContent = a.miss.type === 'date' ? 'Please pick a day for your event.' : 'Please answer "' + a.miss.label + '".';
+      var w = bookDlg.querySelector('[data-q="' + a.miss.id + '"]'); if (w) w.scrollIntoView({block: 'center', behavior: 'smooth'});
+      return;
+    }
+    if (a.ans.contact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.ans.contact)){ $('bkErr').textContent = 'Please check your email address.'; return; }
+    if (a.ans.start && a.ans.end && a.ans.end <= a.ans.start){ $('bkErr').textContent = 'The end time needs to be after the start time.'; return; }
+    var day = niceDay(bkSel);
+    function done(pay){
+      bkDone = true; $('bkErr').textContent = ''; bkButtons('done');
+      var box = $('bkFields'); box.textContent = '';
+      if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: this is what people see after sending. Nothing was sent.'));
+      box.appendChild(el('p', 'bk-done', 'Thank you! Your request for ' + day + ' is in. The day now shows as taken while the club looks it over.'
+        + (emailed ? ' A copy of your signed agreement (PDF) was emailed to you.' : '')));
+      if (pay.link){
+        $('bkGo').classList.remove('primary');   // one gold button: Pay
+        var a = el('a', 'bk-pay', 'Pay ' + (pay.amount ? pay.amount + ' ' : '') + 'now with card');
+        a.href = pay.link; a.rel = 'noopener'; box.appendChild(a);
+        box.appendChild(el('p', 'bk-paynote', bkPreview ? 'People are taken to Square\'s payment page by themselves after a few seconds (not when trying the form).'
+          : 'Taking you to Square\'s secure payment page… The link is in your email too.'));
+        if (!bkPreview) setTimeout(function(){ if (bookDlg.open) location.href = pay.link; }, 3000);   // same tab: Square brings them back to the club site
+      } else if (pay.card) box.appendChild(el('p', 'bk-paynote', 'We will send you a link to pay with a card.'));
+      else if (pay.note) box.appendChild(el('p', 'bk-paynote', pay.note));
+    }
+    var emailed = !!bkPreview;
+    if (bkPreview){ done(payFor(a.ans)); return; }
+    bkButtons('sending'); $('bkErr').textContent = '';
+    google.script.run.withSuccessHandler(function(r){
+      if (r && r.ok){ emailed = !!r.emailed; done({link: r.payLink, amount: r.payAmount, note: r.payNote, card: bkPayWith === 'card'}); if (window.rocCalReset) rocCalReset(); return; }
+      bkButtons('form');
+      $('bkErr').textContent = (r && r.message) || 'That did not go through. Please try again.';
+      if (r && r.taken) google.script.run.withSuccessHandler(function(f){   // someone just took the day: show the calendar as it is now
+        if (!f || !f.ok) return;
+        BK.booked = f.booked; var w = bookDlg.querySelector('[data-q="date"] .bk-calwrap');
+        if (w) w.parentNode.replaceChild(bkCal(), w);
+      }).getBookingForm();
+    }).withFailureHandler(function(x){
+      bkButtons('form');
+      $('bkErr').textContent = 'Something went wrong (' + ((x && x.message) || x) + '). Please try again.';
+    }).submitBooking(a.ans);
+  });
+  $('bkClose').addEventListener('click', function(){ bookDlg.close(); });
+
+  // Manager: Bookings (bookingList / bookingAction in Code.gs): waiting requests first, then approved ones coming up.
+  var bkListDlg = $('bkListDlg');
+  function bkLoad(msg){
+    $('bklErr').textContent = ''; $('bklOk').textContent = msg || '';
+    google.script.run.withSuccessHandler(function(r){
+      var list = $('bklList'); list.textContent = '';
+      if (!r || !r.ok){ $('bklErr').textContent = (r && r.message) || 'Could not load the bookings.'; return; }
+      $('bkSheet').href = r.sheet;
+      setBookWaiting(r.pending);
+      var pend = r.bookings.filter(function(b){ return b.status === 'Pending'; }), rest = r.bookings.filter(function(b){ return b.status !== 'Pending'; });
+      list.appendChild(el('div', 'vol-h', 'Waiting for approval'));
+      if (!pend.length) list.appendChild(el('div', 'vol-empty', 'No requests waiting.'));
+      pend.forEach(function(b){ list.appendChild(bkCard(b)); });
+      list.appendChild(el('div', 'vol-h', 'Coming up'));
+      if (!rest.length) list.appendChild(el('div', 'vol-empty', 'No approved bookings coming up.'));
+      rest.forEach(function(b){ list.appendChild(bkCard(b)); });
+    }).withFailureHandler(function(x){ $('bklErr').textContent = 'Could not load the bookings (' + ((x && x.message) || x) + ').'; }).bookingList(CODE);
+  }
+  function bkCard(bk){
+    var card = el('div', 'vol-card bk-card'), btns = el('div', 'vol-btns'), paid = /^y/i.test(bk.paid || '');
+    var name = el('div', 'vol-name', bk.title || bk.name || 'Booking');
+    if (paid) name.appendChild(el('span', 'bk-tag', 'Paid'));
+    card.appendChild(name);
+    card.appendChild(el('div', 'vol-sub', (bk.when || '') + (bk.onCal ? '' : ' · not on the calendar')));
+    if (bk.name && (bk.title || '').indexOf(bk.name) < 0) card.appendChild(el('div', 'vol-sub', 'From ' + bk.name));
+    bk.details.forEach(function(d){ var x = el('div', 'vol-sub'); x.appendChild(el('b', '', d.label + (/[?:]$/.test(d.label) ? ' ' : ': '))); x.appendChild(document.createTextNode(d.value)); card.appendChild(x); });
+    if (bk.received) card.appendChild(el('div', 'vol-sub', 'Sent ' + bk.received));
+    function b(label, fn, primary){ var x = el('button', primary ? 'primary' : '', label); x.type = 'button'; x.addEventListener('click', fn); btns.appendChild(x); }
+    function act(action, msg, ask){
+      if (ask && !confirm(ask)) return;
+      Array.prototype.forEach.call(btns.querySelectorAll('button'), function(x){ x.disabled = true; });
+      google.script.run.withSuccessHandler(function(r){
+        if (!r || !r.ok){ Array.prototype.forEach.call(btns.querySelectorAll('button'), function(x){ x.disabled = false; }); $('bklErr').textContent = (r && r.message) || 'That did not work.'; $('bklOk').textContent = ''; return; }
+        bkLoad(msg);
+        if (action === 'approve' || action === 'decline'){ if (window.rocCalReset) rocCalReset(); }
+      }).withFailureHandler(function(x){ $('bklErr').textContent = 'Something went wrong (' + ((x && x.message) || x) + '). Close and open the list to see what happened.'; })
+        .bookingAction(CODE, {row: bk.row, eventId: bk.eventId, action: action});
+    }
+    var who = bk.name || 'this booking';
+    if (bk.status === 'Pending') b('Approve', function(){ act('approve', 'Approved: "Pending" is off the calendar title. Let ' + who + ' know.'); }, true);
+    b(paid ? 'Mark not paid' : 'Mark paid', function(){ act(paid ? 'unpaid' : 'paid', paid ? 'Marked not paid.' : 'Marked paid.'); });
+    if (bk.status === 'Pending') b('Decline', function(){ act('decline', 'Declined and taken off the calendar. Let ' + who + ' know.', 'Decline the request from ' + who + '? It is taken off the calendar and the day opens up again.'); });
+    else b('Cancel booking', function(){ act('decline', 'Cancelled and taken off the calendar.', 'Cancel the booking for ' + who + '? It is taken off the calendar and the day opens up again.'); });
+    card.appendChild(btns);
+    return card;
+  }
+  function openBookings(){ $('bklList').textContent = 'Loading…'; bkListDlg.showModal(); bkLoad(''); }
+  $('bkListBtn').addEventListener('click', openBookings);
+  $('bklClose').addEventListener('click', function(){ bkListDlg.close(); });
+
+  // Manager: Edit booking form (saveBookingForm in Code.gs). Name, contact, date and the two times are always asked
+  // (the calendar needs them); their wording can change. Other questions can be added, changed, moved and removed.
+  var bkEditDlg = $('bkEditDlg'), ED = null, edDirty = false;
+  var QTYPES = [['short', 'Short answer'], ['long', 'Long answer'], ['number', 'Number'], ['choice', 'Pick one from a list'], ['checks', 'Tick boxes (any number)'], ['yesno', 'Yes or No']];
+  var FIXEDQ = {name: 'Their name, typed as a signature (always asked)', contact: 'Email address (always asked; their copy goes here)', payment: 'The two send buttons: Pay by card / Pay by cash/check', date: 'Date, picked on a calendar (always asked)', start: 'Start time (always asked)', end: 'End time (always asked)'};
+  function edMsg(err, ok){ $('bkeErr').textContent = err || ''; $('bkeOk').textContent = ok || ''; }
+  function edDraw(){
+    var list = $('bkeList'); list.textContent = '';
+    ED.questions.forEach(function(q, i){
+      var box = el('div', 'bk-ed'), fixed = FIXEDQ[q.id];
+      box.appendChild(el('div', 'bk-fixed', fixed || 'Question'));
+      var lab = el('textarea', 'bk-in bk-lab'); lab.rows = 2; lab.value = q.label; lab.placeholder = 'The question'; lab.maxLength = 300;
+      lab.addEventListener('input', function(){ q.label = lab.value; edDirty = true; });
+      var help = el('input', 'bk-in'); help.type = 'text'; help.value = q.help || ''; help.placeholder = 'Small note under it (optional)'; help.maxLength = 500;
+      help.addEventListener('input', function(){ q.help = help.value; edDirty = true; });
+      if (q.type === 'payment'){   // not a question: always the last thing on the form
+        box.appendChild(el('div', 'bk-fixed', 'The form ends with these two buttons; either one sends the request. "Pay by card" takes them to the Square link you pasted next to the facility they picked. What to tell people who pick cash/check:'));
+        var pn = el('textarea', 'bk-in'); pn.rows = 3; pn.value = q.note || ''; pn.maxLength = 500;
+        pn.addEventListener('input', function(){ q.note = pn.value; edDirty = true; });
+        box.appendChild(pn); list.appendChild(box);
+        return;
+      }
+      box.appendChild(lab); box.appendChild(help);
+      if (!fixed){
+        var row = el('div', 'bk-edrow'), sel = el('select', 'bk-in'), req = el('label', 'bk-chk'), cb = el('input');
+        QTYPES.forEach(function(t){ var o = el('option', '', t[1]); o.value = t[0]; sel.appendChild(o); });
+        sel.value = q.type;
+        sel.addEventListener('change', function(){ q.type = sel.value; if ((q.type === 'choice' || q.type === 'checks') && !(q.options && q.options.length)) q.options = []; edDirty = true; edDraw(); });
+        cb.type = 'checkbox'; cb.checked = !!q.required;
+        cb.addEventListener('change', function(){ q.required = cb.checked; edDirty = true; });
+        req.appendChild(cb); req.appendChild(document.createTextNode('Required'));
+        row.appendChild(sel); row.appendChild(req); box.appendChild(row);
+        if (q.type === 'choice' || q.type === 'checks'){
+          box.appendChild(el('div', 'bk-fixed', 'The choices, one per line:'));
+          var ta = el('textarea', 'bk-in'); ta.rows = Math.max(2, (q.options || []).length + 1); ta.value = (q.options || []).join('\n');
+          ta.addEventListener('input', function(){ q.options = ta.value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean); edDirty = true; });
+          box.appendChild(ta);
+          if (q.type === 'choice'){   // Square payment link per choice (card payers get the one they picked)
+            ta.addEventListener('change', edDraw);
+            box.appendChild(el('div', 'bk-fixed', 'Square payment link for each choice (optional; paste the link from Square):'));
+            q.links = q.links || {};
+            (q.options || []).forEach(function(o){
+              var row = el('div', 'bk-link'), inp = el('input', 'bk-in');
+              inp.type = 'url'; inp.value = q.links[o] || ''; inp.placeholder = 'https://square.link/…'; inp.setAttribute('autocapitalize', 'off');
+              inp.addEventListener('input', function(){ q.links[o] = inp.value.trim(); edDirty = true; });
+              row.appendChild(el('span', '', o)); row.appendChild(inp); box.appendChild(row);
+            });
+          }
+        }
+      }
+      var mv = el('div', 'vol-btns');
+      function b(label, fn, off){ var x = el('button', '', label); x.type = 'button'; x.disabled = !!off; x.addEventListener('click', fn); mv.appendChild(x); }
+      b('Move up', function(){ ED.questions.splice(i - 1, 0, ED.questions.splice(i, 1)[0]); edDirty = true; edDraw(); }, i === 0);
+      b('Move down', function(){ ED.questions.splice(i + 1, 0, ED.questions.splice(i, 1)[0]); edDirty = true; edDraw(); }, i === ED.questions.length - 1);
+      if (!fixed) b('Remove', function(){
+        if (!confirm('Remove "' + (q.label || 'this question') + '" from the form? Answers already sent stay on the sheet.')) return;
+        ED.questions.splice(i, 1); edDirty = true; edDraw();
+      });
+      box.appendChild(mv);
+      list.appendChild(box);
+    });
+  }
+  function edCollect(){
+    ED.conditions = $('bkeTerms').value;
+    for (var i = 0; i < ED.questions.length; i++){
+      var q = ED.questions[i];
+      if (!q.label.trim()) return 'Question ' + (i + 1) + ' has no wording. Type it, or remove the question.';
+      if ((q.type === 'choice' || q.type === 'checks') && !(q.options && q.options.length)) return '"' + q.label + '" needs at least one choice.';
+      if (q.links) for (var k in q.links) if (q.links[k] && !/^https:\/\/\S+$/.test(q.links[k])) return 'The payment link for "' + k + '" should start with https://';
+    }
+    return '';
+  }
+  $('bkEditBtn').addEventListener('click', function(){
+    edMsg('', 'Loading…'); $('bkeList').textContent = ''; $('bkeSave').disabled = true; bkEditDlg.showModal();
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || !r.ok){ edMsg((r && r.message) || 'Could not load the form.'); return; }
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); edMsg(); $('bkeSave').disabled = false;
+    }).withFailureHandler(function(x){ edMsg('Could not load the form (' + ((x && x.message) || x) + ').'); }).getBookingForm();
+  });
+  $('bkeTerms').addEventListener('input', function(){ edDirty = true; });
+  $('bkeAdd').addEventListener('click', function(){
+    if (!ED) return;
+    ED.questions.push({id: '', type: 'short', label: '', help: '', required: false}); edDirty = true; edDraw();
+    var all = $('bkeList').querySelectorAll('.bk-ed'), last = all[all.length - 1];
+    last.scrollIntoView({block: 'center', behavior: 'smooth'}); last.querySelector('textarea').focus();
+  });
+  $('bkePrev').addEventListener('click', function(){
+    if (!ED) return;
+    var bad = edCollect(); if (bad){ edMsg(bad); return; }
+    edMsg(); openBooking(JSON.parse(JSON.stringify(ED)));
+  });
+  $('bkeSave').addEventListener('click', function(){
+    if (!ED) return;
+    var bad = edCollect(); if (bad){ edMsg(bad); return; }
+    $('bkeSave').disabled = true; edMsg('', 'Saving…');
+    google.script.run.withSuccessHandler(function(r){
+      $('bkeSave').disabled = false;
+      if (!r || !r.ok){ edMsg((r && r.message) || 'Could not save.'); return; }
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw();
+      edMsg('', 'Saved. The form shows your changes now.');
+    }).withFailureHandler(function(x){ $('bkeSave').disabled = false; edMsg('Something went wrong (' + ((x && x.message) || x) + '). Your changes are not saved yet.'); }).saveBookingForm(CODE, ED);
+  });
+  bkEditDlg.addEventListener('cancel', function(e){ if (edDirty && !confirm('Close without saving your changes?')) e.preventDefault(); });
+  $('bkeClose').addEventListener('click', function(){
+    if (edDirty && !confirm('Close without saving your changes?')) return;
+    bkEditDlg.close();
+  });
 
   // Change my password (volunteers with their own login): accessChangePassword in Access writes it to their row and
   // hands back a new pass, kept in place of the old one (the old pass stops working: their other devices sign out).
