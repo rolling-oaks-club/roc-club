@@ -402,6 +402,15 @@ dialog.pwdlg .bk-link .bk-in{margin:0;font-size:14px;padding:8px}
 dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
 .bk-fixed{font-size:.78rem;color:var(--paper-2);margin-top:6px}
 .bk-ed>.bk-fixed:first-child{margin-top:0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+/* computers: wider form, the date and times in their own column beside the conditions and questions */
+@media (min-width: 900px){
+  dialog.pwdlg.pop.wide#bookDlg{max-width:980px}
+  #bkFields{display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:28px;align-items:start}
+  #bkFields>*{grid-column:1}
+  #bkFields>.bk-when{grid-column:2;grid-row:1/span 40;position:sticky;top:0;padding-top:4px}
+  #bkFields>.bk-when>.bk-q:first-child{margin-top:0}
+  #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
+}
 dialog.pwdlg label.bk-chk{display:flex;align-items:center;gap:6px;margin:0;color:var(--paper);font-size:.9rem;cursor:pointer}
 .bk-chk input{accent-color:var(--oak);width:18px;height:18px;margin:0}
 
@@ -1087,7 +1096,7 @@ html.vid .ripples{display:none}
 <dialog id="bookDlg" class="pwdlg pop wide" aria-labelledby="bkH">
   <div class="pophead"><div><h3 id="bkH">Clubhouse Rental Agreement</h3><span class="popsub">Rolling Oaks Club · please read the conditions, then fill in the form</span></div><button type="button" class="popx" id="bkClose" aria-label="Close">×</button></div>
   <div class="popbody"><form id="bkForm" novalidate><div id="bkFields"></div></form></div>
-  <div class="popfoot"><div class="err" id="bkErr" role="alert"></div><button type="submit" form="bkForm" class="primary" id="bkGo">Send request</button></div>
+  <div class="popfoot"><div class="err" id="bkErr" role="alert"></div><button type="submit" form="bkForm" class="primary" id="bkGo">Pay by card</button><button type="submit" form="bkForm" id="bkGo2">Pay by cash/check</button></div>
 </dialog>
 
 <dialog id="bkListDlg" class="pwdlg pop wide" aria-labelledby="bklH">
@@ -1697,7 +1706,18 @@ html.vid .ripples{display:none}
   // Clubhouse Sign-Up: our own booking form (getBookingForm / submitBooking in Code.gs, 2026-11-09; it replaced the Google
   // Form). The questions come from the server (the Manager changes them in Edit booking form); every day that has anything
   // on the Clubhouse Bookings calendar is crossed out. Answers are put on the page as text only.
-  var bookDlg = $('bookDlg'), BK = null, bkSel = '', bkMonth = null, bkDone = false, bkPreview = false;
+  var bookDlg = $('bookDlg'), BK = null, bkSel = '', bkMonth = null, bkDone = false, bkPreview = false, bkPayWith = 'card';
+  // two send buttons: which one was pressed (Enter in a box counts as the first, Pay by card)
+  $('bkGo').addEventListener('click', function(){ bkPayWith = 'card'; });
+  $('bkGo2').addEventListener('click', function(){ bkPayWith = 'cash'; });
+  function bkButtons(state){   // 'form' | 'sending' | 'done'
+    var g = $('bkGo'), g2 = $('bkGo2');
+    g.disabled = g2.disabled = state === 'sending';
+    g2.hidden = state === 'done';
+    if (state === 'form'){ g.textContent = 'Pay by card'; g2.textContent = 'Pay by cash/check'; g.classList.add('primary'); }
+    if (state === 'sending') (bkPayWith === 'cash' ? g2 : g).textContent = 'Sending…';
+    if (state === 'done') g.textContent = 'Close';
+  }
   var DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   function pad2(n){ return ('0' + n).slice(-2); }
   function isoParts(iso){ var p = iso.split('-').map(Number); return [p[0], p[1] - 1, p[2]]; }
@@ -1766,6 +1786,7 @@ html.vid .ripples{display:none}
     if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: nothing you send here goes anywhere. Booked days are not shown.'));
     if (BK.form.conditions){ box.appendChild(el('div', 'popsec', 'Conditions')); box.appendChild(termsEl(BK.form.conditions)); }
     BK.form.questions.forEach(function(q){
+      if (q.type === 'payment') return;   // that's the two send buttons at the bottom
       var w = el('div', 'bk-q'), fid = 'bkq_' + q.id, lab = el('label', 'bk-l', q.label), inp = null;
       w.setAttribute('data-q', q.id);
       if (q.required) lab.appendChild(el('span', 'req', ' *'));
@@ -1791,13 +1812,13 @@ html.vid .ripples{display:none}
         if (q.type === 'name'){ inp.autocomplete = 'name'; inp.className += ' bk-sign'; inp.placeholder = 'Type your name to sign'; }
         if (q.type === 'contact'){ inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email'; inp.maxLength = 100; inp.setAttribute('autocapitalize', 'off'); }
       }
-      if (q.type === 'payment' && q.note){   // check or cash: their note shows once that's picked
-        var pn = el('div', 'bk-help', q.note); pn.hidden = true; pn.style.marginTop = '8px'; w.appendChild(pn);
-        w.addEventListener('change', function(){ var c = w.querySelector('input:checked'); pn.hidden = !c || c.value === q.options[0]; });
-      }
       if (inp){ inp.id = fid; lab.htmlFor = fid; w.appendChild(inp); }
-      box.appendChild(w);
+      if (q.type === 'date' || q.type === 'time'){   // date and times sit together (beside the rest on computers)
+        var when = box.querySelector('.bk-when') || box.appendChild(el('div', 'bk-when'));
+        when.appendChild(w);
+      } else box.appendChild(w);
     });
+    box.appendChild(el('p', 'bk-paynote bk-sendnote', 'To send your request, choose how you will pay below.'));
     var st = $('bkq_start'), en = $('bkq_end');
     if (st && en) st.addEventListener('change', function(){   // the usual 4 hour block, if the end isn't picked yet
       if (en.value || !st.value) return;
@@ -1822,6 +1843,7 @@ html.vid .ripples{display:none}
     var ans = {}, miss = null;
     BK.form.questions.forEach(function(q){
       var v, sel = 'input[name="bkq_' + q.id + '"]';
+      if (q.type === 'payment'){ ans[q.id] = q.options[bkPayWith === 'cash' ? 1 : 0]; return; }
       if (q.type === 'date') v = bkSel;
       else if (q.type === 'checks') v = Array.prototype.map.call(bookDlg.querySelectorAll(sel + ':checked'), function(x){ return x.value; });
       else if (q.type === 'choice' || q.type === 'yesno' || q.type === 'payment'){ var c = bookDlg.querySelector(sel + ':checked'); v = c ? c.value : ''; }
@@ -1837,17 +1859,17 @@ html.vid .ripples{display:none}
       var f = document.createElement('link'); f.id = 'bkFont'; f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&display=swap'; document.head.appendChild(f);
     }
     bkDone = false; bkSel = ''; bkMonth = null; bkPreview = !!previewForm;
-    $('bkErr').textContent = ''; $('bkGo').textContent = 'Send request'; $('bkGo').classList.add('primary');
+    $('bkErr').textContent = ''; bkButtons('form'); bkPayWith = 'card';
     $('bkFields').textContent = 'Loading…'; bookDlg.showModal();
     if (previewForm){
       var t = new Date(Date.now() + 864e5), y = new Date(Date.now() + 366 * 864e5);
       var iso = function(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
-      BK = {form: previewForm, booked: [], from: iso(t), to: iso(y)}; bkDraw(); $('bkGo').disabled = false; return;
+      BK = {form: previewForm, booked: [], from: iso(t), to: iso(y)}; bkDraw(); return;
     }
-    $('bkGo').disabled = true;
+    $('bkGo').disabled = $('bkGo2').disabled = true;
     google.script.run.withSuccessHandler(function(r){
       if (!r || !r.ok){ $('bkFields').textContent = ''; $('bkErr').textContent = (r && r.message) || 'Could not load the form.'; return; }
-      BK = r; bkDraw(); $('bkGo').disabled = false;
+      BK = r; bkDraw(); $('bkGo').disabled = $('bkGo2').disabled = false;
     }).withFailureHandler(function(x){ $('bkFields').textContent = ''; $('bkErr').textContent = 'Could not load the form (' + ((x && x.message) || x) + '). Please try again.'; }).getBookingForm();
   }
   $('bkForm').addEventListener('submit', function(e){
@@ -1864,7 +1886,7 @@ html.vid .ripples{display:none}
     if (a.ans.start && a.ans.end && a.ans.end <= a.ans.start){ $('bkErr').textContent = 'The end time needs to be after the start time.'; return; }
     var day = niceDay(bkSel);
     function done(pay){
-      bkDone = true; $('bkErr').textContent = ''; $('bkGo').disabled = false; $('bkGo').textContent = 'Close';
+      bkDone = true; $('bkErr').textContent = ''; bkButtons('done');
       var box = $('bkFields'); box.textContent = '';
       if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: this is what people see after sending. Nothing was sent.'));
       box.appendChild(el('p', 'bk-done', 'Thank you! Your request for ' + day + ' is in. The day now shows as taken while the club looks it over.'
@@ -1872,17 +1894,19 @@ html.vid .ripples{display:none}
       if (pay.link){
         $('bkGo').classList.remove('primary');   // one gold button: Pay
         var a = el('a', 'bk-pay', 'Pay ' + (pay.amount ? pay.amount + ' ' : '') + 'now with card');
-        a.href = pay.link; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a);
-        box.appendChild(el('p', 'bk-paynote', 'Opens Square\'s secure payment page. The link is in your email too.'));
+        a.href = pay.link; a.rel = 'noopener'; box.appendChild(a);
+        box.appendChild(el('p', 'bk-paynote', bkPreview ? 'People are taken to Square\'s payment page by themselves after a few seconds (not when trying the form).'
+          : 'Taking you to Square\'s secure payment page… The link is in your email too.'));
+        if (!bkPreview) setTimeout(function(){ if (bookDlg.open) location.href = pay.link; }, 3000);   // same tab: Square brings them back to the club site
       } else if (pay.card) box.appendChild(el('p', 'bk-paynote', 'We will send you a link to pay with a card.'));
       else if (pay.note) box.appendChild(el('p', 'bk-paynote', pay.note));
     }
     var emailed = !!bkPreview;
     if (bkPreview){ done(payFor(a.ans)); return; }
-    $('bkGo').disabled = true; $('bkGo').textContent = 'Sending…'; $('bkErr').textContent = '';
+    bkButtons('sending'); $('bkErr').textContent = '';
     google.script.run.withSuccessHandler(function(r){
-      if (r && r.ok){ emailed = !!r.emailed; done({link: r.payLink, amount: r.payAmount, note: r.payNote, card: !r.payNote && a.ans.payment === 'Pay now with card'}); if (window.rocCalReset) rocCalReset(); return; }
-      $('bkGo').disabled = false; $('bkGo').textContent = 'Send request';
+      if (r && r.ok){ emailed = !!r.emailed; done({link: r.payLink, amount: r.payAmount, note: r.payNote, card: bkPayWith === 'card'}); if (window.rocCalReset) rocCalReset(); return; }
+      bkButtons('form');
       $('bkErr').textContent = (r && r.message) || 'That did not go through. Please try again.';
       if (r && r.taken) google.script.run.withSuccessHandler(function(f){   // someone just took the day: show the calendar as it is now
         if (!f || !f.ok) return;
@@ -1890,7 +1914,7 @@ html.vid .ripples{display:none}
         if (w) w.parentNode.replaceChild(bkCal(), w);
       }).getBookingForm();
     }).withFailureHandler(function(x){
-      $('bkGo').disabled = false; $('bkGo').textContent = 'Send request';
+      bkButtons('form');
       $('bkErr').textContent = 'Something went wrong (' + ((x && x.message) || x) + '). Please try again.';
     }).submitBooking(a.ans);
   });
@@ -1950,7 +1974,7 @@ html.vid .ripples{display:none}
   // (the calendar needs them); their wording can change. Other questions can be added, changed, moved and removed.
   var bkEditDlg = $('bkEditDlg'), ED = null, edDirty = false;
   var QTYPES = [['short', 'Short answer'], ['long', 'Long answer'], ['number', 'Number'], ['choice', 'Pick one from a list'], ['checks', 'Tick boxes (any number)'], ['yesno', 'Yes or No']];
-  var FIXEDQ = {name: 'Their name, typed as a signature (always asked)', contact: 'Email address (always asked; their copy goes here)', payment: 'How they pay: card or check/cash (always asked)', date: 'Date, picked on a calendar (always asked)', start: 'Start time (always asked)', end: 'End time (always asked)'};
+  var FIXEDQ = {name: 'Their name, typed as a signature (always asked)', contact: 'Email address (always asked; their copy goes here)', payment: 'The two send buttons: Pay by card / Pay by cash/check', date: 'Date, picked on a calendar (always asked)', start: 'Start time (always asked)', end: 'End time (always asked)'};
   function edMsg(err, ok){ $('bkeErr').textContent = err || ''; $('bkeOk').textContent = ok || ''; }
   function edDraw(){
     var list = $('bkeList'); list.textContent = '';
@@ -1961,13 +1985,14 @@ html.vid .ripples{display:none}
       lab.addEventListener('input', function(){ q.label = lab.value; edDirty = true; });
       var help = el('input', 'bk-in'); help.type = 'text'; help.value = q.help || ''; help.placeholder = 'Small note under it (optional)'; help.maxLength = 500;
       help.addEventListener('input', function(){ q.help = help.value; edDirty = true; });
-      box.appendChild(lab); box.appendChild(help);
-      if (q.type === 'payment'){
-        box.appendChild(el('div', 'bk-fixed', 'The choices are "' + q.options.join('" and "') + '". Card payers get the Square link you paste next to the facility they picked. What to tell people paying by check or cash:'));
+      if (q.type === 'payment'){   // not a question: always the last thing on the form
+        box.appendChild(el('div', 'bk-fixed', 'The form ends with these two buttons; either one sends the request. "Pay by card" takes them to the Square link you pasted next to the facility they picked. What to tell people who pick cash/check:'));
         var pn = el('textarea', 'bk-in'); pn.rows = 3; pn.value = q.note || ''; pn.maxLength = 500;
         pn.addEventListener('input', function(){ q.note = pn.value; edDirty = true; });
-        box.appendChild(pn);
+        box.appendChild(pn); list.appendChild(box);
+        return;
       }
+      box.appendChild(lab); box.appendChild(help);
       if (!fixed){
         var row = el('div', 'bk-edrow'), sel = el('select', 'bk-in'), req = el('label', 'bk-chk'), cb = el('input');
         QTYPES.forEach(function(t){ var o = el('option', '', t[1]); o.value = t[0]; sel.appendChild(o); });
