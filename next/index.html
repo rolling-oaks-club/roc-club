@@ -385,6 +385,11 @@ dialog.pwdlg label.bk-opt{display:flex;align-items:center;gap:10px;margin:6px 0 
 .bk-calk{font-size:.8rem;color:var(--paper-2);margin-top:8px}
 .bk-picked{font-size:.92rem;color:var(--paper);margin-top:4px;font-weight:600}
 .bk-done{color:var(--paper);font-size:1rem;line-height:1.55;padding:6px 0}
+.bk-pay{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;margin:6px 0 10px;border-radius:12px;background:var(--oak);color:var(--bark);font-weight:700;font-size:1.05rem;text-decoration:none}
+.bk-paynote{font-size:.85rem;color:var(--paper-2);line-height:1.45}
+.bk-link{display:flex;align-items:center;gap:8px;margin-top:6px}
+.bk-link span{flex:0 0 auto;max-width:45%;font-size:.8rem;color:var(--paper-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog.pwdlg .bk-link .bk-in{margin:0;font-size:14px;padding:8px}
 .bk-prev{background:rgba(214,154,74,.15);border:1px solid var(--oak);border-radius:10px;padding:8px 12px;font-size:.88rem;color:var(--paper);margin-bottom:10px}
 .bk-card .vol-sub{word-break:normal;overflow-wrap:anywhere}
 .bk-card .vol-sub b{color:var(--paper);font-weight:600}
@@ -1767,7 +1772,7 @@ html.vid .ripples{display:none}
       w.appendChild(lab);
       if (q.help) w.appendChild(el('div', 'bk-help', q.help));
       if (q.type === 'long'){ inp = el('textarea', 'bk-in'); inp.maxLength = 2000; }
-      else if (q.type === 'choice' || q.type === 'checks' || q.type === 'yesno'){
+      else if (q.type === 'choice' || q.type === 'checks' || q.type === 'yesno' || q.type === 'payment'){
         (q.type === 'yesno' ? ['Yes', 'No'] : q.options).forEach(function(o){
           var l = el('label', 'bk-opt'), i = el('input');
           i.type = q.type === 'checks' ? 'checkbox' : 'radio'; i.name = fid; i.value = o;
@@ -1786,6 +1791,10 @@ html.vid .ripples{display:none}
         if (q.type === 'name'){ inp.autocomplete = 'name'; inp.className += ' bk-sign'; inp.placeholder = 'Type your name to sign'; }
         if (q.type === 'contact'){ inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email'; inp.maxLength = 100; inp.setAttribute('autocapitalize', 'off'); }
       }
+      if (q.type === 'payment' && q.note){   // check or cash: their note shows once that's picked
+        var pn = el('div', 'bk-help', q.note); pn.hidden = true; pn.style.marginTop = '8px'; w.appendChild(pn);
+        w.addEventListener('change', function(){ var c = w.querySelector('input:checked'); pn.hidden = !c || c.value === q.options[0]; });
+      }
       if (inp){ inp.id = fid; lab.htmlFor = fid; w.appendChild(inp); }
       box.appendChild(w);
     });
@@ -1796,13 +1805,26 @@ html.vid .ripples{display:none}
       en.value = pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
     });
   }
+  // Trying the form only (the server works this out for real requests): bookPayFor_ in Code.gs
+  function payFor(ans){
+    var out = {card: false, link: '', amount: '', note: ''};
+    BK.form.questions.forEach(function(q){ if (q.type === 'payment'){ out.card = ans[q.id] === q.options[0]; out.note = q.note || ''; } });
+    BK.form.questions.some(function(q){
+      if (q.type !== 'choice' || !q.links || !q.links[ans[q.id]]) return false;
+      if (out.card) out.link = q.links[ans[q.id]];
+      var m = /\$\s?\d+(?:\.\d\d)?/.exec(ans[q.id]); out.amount = m ? m[0].replace(/\s/, '') : '';
+      return true;
+    });
+    if (out.card) out.note = '';
+    return out;
+  }
   function bkAnswers(){
     var ans = {}, miss = null;
     BK.form.questions.forEach(function(q){
       var v, sel = 'input[name="bkq_' + q.id + '"]';
       if (q.type === 'date') v = bkSel;
       else if (q.type === 'checks') v = Array.prototype.map.call(bookDlg.querySelectorAll(sel + ':checked'), function(x){ return x.value; });
-      else if (q.type === 'choice' || q.type === 'yesno'){ var c = bookDlg.querySelector(sel + ':checked'); v = c ? c.value : ''; }
+      else if (q.type === 'choice' || q.type === 'yesno' || q.type === 'payment'){ var c = bookDlg.querySelector(sel + ':checked'); v = c ? c.value : ''; }
       else v = ($('bkq_' + q.id).value || '').trim();
       ans[q.id] = v;
       if (q.required && !miss && (Array.isArray(v) ? !v.length : !v)) miss = q;
@@ -1815,7 +1837,7 @@ html.vid .ripples{display:none}
       var f = document.createElement('link'); f.id = 'bkFont'; f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&display=swap'; document.head.appendChild(f);
     }
     bkDone = false; bkSel = ''; bkMonth = null; bkPreview = !!previewForm;
-    $('bkErr').textContent = ''; $('bkGo').textContent = 'Send request';
+    $('bkErr').textContent = ''; $('bkGo').textContent = 'Send request'; $('bkGo').classList.add('primary');
     $('bkFields').textContent = 'Loading…'; bookDlg.showModal();
     if (previewForm){
       var t = new Date(Date.now() + 864e5), y = new Date(Date.now() + 366 * 864e5);
@@ -1841,18 +1863,25 @@ html.vid .ripples{display:none}
     if (a.ans.contact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.ans.contact)){ $('bkErr').textContent = 'Please check your email address.'; return; }
     if (a.ans.start && a.ans.end && a.ans.end <= a.ans.start){ $('bkErr').textContent = 'The end time needs to be after the start time.'; return; }
     var day = niceDay(bkSel);
-    function done(){
+    function done(pay){
       bkDone = true; $('bkErr').textContent = ''; $('bkGo').disabled = false; $('bkGo').textContent = 'Close';
       var box = $('bkFields'); box.textContent = '';
-      box.appendChild(el('p', 'bk-done', bkPreview ? 'This is where people see: "Thank you! Your request for ' + day + ' is in." (Nothing was sent.)'
-        : 'Thank you! Your request for ' + day + ' is in. The day now shows as taken while the club looks it over, and we will contact you about payment.'
-          + (emailed ? ' A copy of your signed agreement (PDF) was emailed to you.' : '')));
+      if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: this is what people see after sending. Nothing was sent.'));
+      box.appendChild(el('p', 'bk-done', 'Thank you! Your request for ' + day + ' is in. The day now shows as taken while the club looks it over.'
+        + (emailed ? ' A copy of your signed agreement (PDF) was emailed to you.' : '')));
+      if (pay.link){
+        $('bkGo').classList.remove('primary');   // one gold button: Pay
+        var a = el('a', 'bk-pay', 'Pay ' + (pay.amount ? pay.amount + ' ' : '') + 'now with card');
+        a.href = pay.link; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a);
+        box.appendChild(el('p', 'bk-paynote', 'Opens Square\'s secure payment page. The link is in your email too.'));
+      } else if (pay.card) box.appendChild(el('p', 'bk-paynote', 'We will send you a link to pay with a card.'));
+      else if (pay.note) box.appendChild(el('p', 'bk-paynote', pay.note));
     }
-    var emailed = false;
-    if (bkPreview){ done(); return; }
+    var emailed = !!bkPreview;
+    if (bkPreview){ done(payFor(a.ans)); return; }
     $('bkGo').disabled = true; $('bkGo').textContent = 'Sending…'; $('bkErr').textContent = '';
     google.script.run.withSuccessHandler(function(r){
-      if (r && r.ok){ emailed = !!r.emailed; done(); if (window.rocCalReset) rocCalReset(); return; }
+      if (r && r.ok){ emailed = !!r.emailed; done({link: r.payLink, amount: r.payAmount, note: r.payNote, card: !r.payNote && a.ans.payment === 'Pay now with card'}); if (window.rocCalReset) rocCalReset(); return; }
       $('bkGo').disabled = false; $('bkGo').textContent = 'Send request';
       $('bkErr').textContent = (r && r.message) || 'That did not go through. Please try again.';
       if (r && r.taken) google.script.run.withSuccessHandler(function(f){   // someone just took the day: show the calendar as it is now
@@ -1921,7 +1950,7 @@ html.vid .ripples{display:none}
   // (the calendar needs them); their wording can change. Other questions can be added, changed, moved and removed.
   var bkEditDlg = $('bkEditDlg'), ED = null, edDirty = false;
   var QTYPES = [['short', 'Short answer'], ['long', 'Long answer'], ['number', 'Number'], ['choice', 'Pick one from a list'], ['checks', 'Tick boxes (any number)'], ['yesno', 'Yes or No']];
-  var FIXEDQ = {name: 'Their name, typed as a signature (always asked)', contact: 'Email address (always asked; their copy goes here)', date: 'Date, picked on a calendar (always asked)', start: 'Start time (always asked)', end: 'End time (always asked)'};
+  var FIXEDQ = {name: 'Their name, typed as a signature (always asked)', contact: 'Email address (always asked; their copy goes here)', payment: 'How they pay: card or check/cash (always asked)', date: 'Date, picked on a calendar (always asked)', start: 'Start time (always asked)', end: 'End time (always asked)'};
   function edMsg(err, ok){ $('bkeErr').textContent = err || ''; $('bkeOk').textContent = ok || ''; }
   function edDraw(){
     var list = $('bkeList'); list.textContent = '';
@@ -1933,6 +1962,12 @@ html.vid .ripples{display:none}
       var help = el('input', 'bk-in'); help.type = 'text'; help.value = q.help || ''; help.placeholder = 'Small note under it (optional)'; help.maxLength = 500;
       help.addEventListener('input', function(){ q.help = help.value; edDirty = true; });
       box.appendChild(lab); box.appendChild(help);
+      if (q.type === 'payment'){
+        box.appendChild(el('div', 'bk-fixed', 'The choices are "' + q.options.join('" and "') + '". Card payers get the Square link you paste next to the facility they picked. What to tell people paying by check or cash:'));
+        var pn = el('textarea', 'bk-in'); pn.rows = 3; pn.value = q.note || ''; pn.maxLength = 500;
+        pn.addEventListener('input', function(){ q.note = pn.value; edDirty = true; });
+        box.appendChild(pn);
+      }
       if (!fixed){
         var row = el('div', 'bk-edrow'), sel = el('select', 'bk-in'), req = el('label', 'bk-chk'), cb = el('input');
         QTYPES.forEach(function(t){ var o = el('option', '', t[1]); o.value = t[0]; sel.appendChild(o); });
@@ -1947,6 +1982,17 @@ html.vid .ripples{display:none}
           var ta = el('textarea', 'bk-in'); ta.rows = Math.max(2, (q.options || []).length + 1); ta.value = (q.options || []).join('\n');
           ta.addEventListener('input', function(){ q.options = ta.value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean); edDirty = true; });
           box.appendChild(ta);
+          if (q.type === 'choice'){   // Square payment link per choice (card payers get the one they picked)
+            ta.addEventListener('change', edDraw);
+            box.appendChild(el('div', 'bk-fixed', 'Square payment link for each choice (optional; paste the link from Square):'));
+            q.links = q.links || {};
+            (q.options || []).forEach(function(o){
+              var row = el('div', 'bk-link'), inp = el('input', 'bk-in');
+              inp.type = 'url'; inp.value = q.links[o] || ''; inp.placeholder = 'https://square.link/…'; inp.setAttribute('autocapitalize', 'off');
+              inp.addEventListener('input', function(){ q.links[o] = inp.value.trim(); edDirty = true; });
+              row.appendChild(el('span', '', o)); row.appendChild(inp); box.appendChild(row);
+            });
+          }
         }
       }
       var mv = el('div', 'vol-btns');
@@ -1967,6 +2013,7 @@ html.vid .ripples{display:none}
       var q = ED.questions[i];
       if (!q.label.trim()) return 'Question ' + (i + 1) + ' has no wording. Type it, or remove the question.';
       if ((q.type === 'choice' || q.type === 'checks') && !(q.options && q.options.length)) return '"' + q.label + '" needs at least one choice.';
+      if (q.links) for (var k in q.links) if (q.links[k] && !/^https:\/\/\S+$/.test(q.links[k])) return 'The payment link for "' + k + '" should start with https://';
     }
     return '';
   }
