@@ -3506,15 +3506,15 @@ function renderTestsDue(ts){
   function pos(t){ var k = TEST_ORDER.indexOf(String(t.name).trim().toLowerCase()); return k < 0 ? 99 : k; }
   idx.sort(function(a, b){ return pos(ts[a]) - pos(ts[b]) || a - b; });
   el.innerHTML = idx.map(function(i){
-    var t = ts[i], s = trkState(t), lv = t.err ? 'red' : s.lv, txt, sh, done = false, tmrw = false;
+    var t = ts[i], s = trkState(t), lv = t.err ? 'red' : s.lv, txt, sh, done = false;
     function md(d){ var p = d.split('-'); return (+p[1]) + '/' + (+p[2]); }
     if (t.err) { txt = 'Check setting'; sh = 'Check'; }
     else if (s.d === null) { txt = 'No test yet'; sh = 'None'; }
     else if (lv === 'red'){ var n = daysBetween(s.due, today); txt = n >= 1 ? n + (n === 1 ? ' day late' : ' days late') : 'Late'; sh = n >= 1 ? n + 'd late' : 'Late'; }
-    else if (lv === 'yellow'){ var k = daysBetween(today, s.due); txt = k <= 0 ? 'Due today' : k === 1 ? 'Tomorrow' : fmtDay(s.due, false); sh = k <= 0 ? 'Today' : k === 1 ? 'Tmrw' : md(s.due); tmrw = k >= 1; }
+    else if (lv === 'yellow'){ var k = daysBetween(today, s.due); txt = k <= 0 ? 'Due today' : k === 1 ? 'Tomorrow' : fmtDay(s.due, false); sh = k <= 0 ? 'Today' : k === 1 ? 'Tmrw' : md(s.due); }
     else if (t.warn <= 1){ txt = '✓ today'; sh = '✓'; done = true; }
     else { txt = fmtDay(s.due, false); sh = md(s.due); }
-    return '<button type="button" class="tdc lv-' + lv + (done ? ' done' : '') + (tmrw ? ' tmrw' : '') + '" data-ti="' + i + '" aria-label="' + esc(t.name + ': ' + txt) + '"><b>' + esc(t.name) + '</b>' +
+    return '<button type="button" class="tdc lv-' + lv + (done ? ' done' : '') + '" data-ti="' + i + '" aria-label="' + esc(t.name + ': ' + txt) + '"><b>' + esc(t.name) + '</b>' +
       '<span class="s"><span class="sl">' + esc(txt) + '</span><span class="ss">' + esc(sh) + '</span></span></button>';
   }).join('');
   el.hidden = !idx.length;
@@ -5153,11 +5153,10 @@ function nowFutAt(hit, clientX, idx){
   window.addEventListener('resize', function(){ if (!nowView) return; clearTimeout(rt); rt = setTimeout(function(){ var b = $('now'); if (b && Math.min(b.clientWidth, 900) !== nowW) renderNow(); }, 150); });
 })();
 
-/** Top-card trial: how the Coming up box stands, from what it shows (r = something late, y = something due now, g = all fine).
- *  A test due tomorrow colors only its own box (2026-11-02). */
+/** Top-card trial: how the Coming up box stands, from what it shows (r = something late, y = something due now, g = all fine). */
 function upState(){
   var b = document.querySelector('.upbox'); if (!b) return;
-  var red = b.querySelector('.jrow.lv-red, .tdc.lv-red'), due = b.querySelector('.jrow.lv-yellow, .tdc.lv-yellow:not(.tmrw)');
+  var red = b.querySelector('.jrow.lv-red, .tdc.lv-red'), due = b.querySelector('.jrow.lv-yellow, .tdc.lv-yellow');
   b.setAttribute('data-st', red ? 'r' : due ? 'y' : 'g');
 }
 function renderAll(){
