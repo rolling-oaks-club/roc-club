@@ -166,6 +166,8 @@ a.card:focus-visible { outline: 3px solid var(--oak); outline-offset: 3px; }
 /* Become a Member: the tile opens in place (1 download, 2 upload); open, it takes the whole row */
 /* header keeps the frosted card look; the opened steps get the lighter dashboard-tile background (#pumping-card) */
 .join{border:1px solid var(--glass-line);border-radius:14px;overflow:hidden;transition:border-color .15s}
+.join{display:flex;flex-direction:column}
+.join>.join-head{flex:1 0 auto}   /* when the tile beside it is taller, the header fills the tile (no empty strip) */
 .join.open{grid-column:1/-1;border-color:var(--oak)}
 .join.open+.join{grid-column:1/-1}   /* Clubhouse Sign-Up then takes the whole next row */
 .join.shown{border-color:var(--oak)}   /* Clubhouse Sign-Up open: it stays in its own column */
@@ -414,8 +416,9 @@ dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
   dialog.pwdlg.pop.wide#bookDlg{max-width:980px}
   #bkFields{display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:28px;align-items:start}
   #bkFields>*{grid-column:1}
-  #bkFields>.bk-when{grid-column:2;grid-row:1/span 40;position:sticky;top:0;padding-top:4px}
-  #bkFields>.bk-when>.bk-q:first-child{margin-top:0}
+  #bkFields>.bk-when{grid-column:2;grid-row:1/span 40;position:sticky;top:0}
+  #bkFields>.bk-when>.bk-q:first-child,#bkFields>.bk-cond{margin-top:4px}
+  #bkFields>[data-q="name"],#bkFields>[data-q="notes"]{grid-column:1/-1}   /* under both columns: the signature, then Anything else */
   #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
 }
 /* light booking form (2026-11-09 preview): warm paper card, dark ink, a deeper oak for text so it reads on the light paper */
@@ -441,6 +444,17 @@ dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
 #bookDlg.light .bk-prev{color:var(--paper)}
 #bookDlg.light .err{color:#B4472D}
 #bookDlg.light .popfoot button:not(.primary){background:#fff;color:var(--paper);border-color:rgba(43,33,23,.25)}
+/* conditions: same heading as the questions; on computers both columns start level */
+.bk-q.bk-cond{margin-top:4px}
+.bk-cal{position:relative}
+.bk-grid button.booked{cursor:help}
+.bk-grid button.wk{position:relative}
+.bk-grid button.wk::after{content:"";position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--oak)}
+.bk-grid button.wk.sel::after{background:var(--bark)}
+.bk-tip{position:absolute;z-index:2;width:max-content;max-width:min(260px,calc(100% - 8px));padding:8px 11px;border-radius:10px;background:#2B2117;color:#FFF8EC;font-size:.82rem;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.3);pointer-events:none}
+.bk-wk{margin-top:6px;padding:8px 11px;border-radius:10px;border:1px solid var(--oak);background:rgba(214,154,74,.14);color:var(--paper);font-size:.86rem;line-height:1.4}
+.bk-wk[hidden]{display:none}
+.bk-wk::before{content:"Heads up: ";font-weight:600}
 dialog.pwdlg label.bk-chk{display:flex;align-items:center;gap:6px;margin:0;color:var(--paper);font-size:.9rem;cursor:pointer}
 .bk-chk input{accent-color:var(--oak);width:18px;height:18px;margin:0}
 
@@ -1146,6 +1160,10 @@ html.vid .ripples{display:none}
   <div class="popsec">Rental conditions</div>
   <textarea class="bk-in" id="bkeTerms" rows="12" maxlength="8000"></textarea>
   <div class="bk-hint">Leave an empty line between paragraphs. Start a line with - (a dash and a space) to make it a bullet point. Put **two stars** on each side of words to make them bold.</div>
+  <div class="popsec">Weekly events</div>
+  <div class="bk-hint" style="margin:0 0 4px">Times the clubhouse is in use every week. Those days can still be booked; the form puts a dot on them and shows the time.</div>
+  <div id="bkeWeekly"></div>
+  <div class="vol-btns"><button type="button" id="bkeWkAdd">+ Add a weekly event</button></div>
   <div class="popsec">Questions</div>
   <div id="bkeList"></div>
   <div class="vol-btns"><button type="button" id="bkeAdd">+ Add a question</button><button type="button" id="bkePrev">Try the form</button></div>
@@ -1761,6 +1779,7 @@ html.vid .ripples{display:none}
   function pad2(n){ return ('0' + n).slice(-2); }
   function isoParts(iso){ var p = iso.split('-').map(Number); return [p[0], p[1] - 1, p[2]]; }
   function niceDay(iso){ var p = isoParts(iso); return new Date(p[0], p[1], p[2]).toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'}); }
+  function niceTime(hm){ var t = hm.split(':').map(Number), h = t[0] % 24; return t[0] === 24 ? 'midnight' : (h % 12 || 12) + ':' + pad2(t[1]) + (h < 12 ? ' AM' : ' PM'); }
   function timeList(from, to){   // minutes after midnight, every half hour -> [["18:30", "6:30 PM"], …]
     var out = [];
     for (var m = from; m <= to; m += 30){
@@ -1790,9 +1809,39 @@ html.vid .ripples{display:none}
     var prev = el('button', '', '‹'), next = el('button', '', '›'), picked = el('div', 'bk-picked'), booked = {};
     prev.type = next.type = 'button'; prev.setAttribute('aria-label', 'Previous month'); next.setAttribute('aria-label', 'Next month');
     head.appendChild(prev); head.appendChild(title); head.appendChild(next); wrap.appendChild(head); wrap.appendChild(grid);
-    outer.appendChild(wrap); outer.appendChild(el('div', 'bk-calk', 'Crossed-out days are already booked.')); outer.appendChild(picked);
+    var tip = el('div', 'bk-tip'), wk = {}, warn = el('div', 'bk-wk');
+    tip.setAttribute('role', 'status'); tip.hidden = true; wrap.appendChild(tip);
+    (BK.form.weekly || []).forEach(function(w){ (wk[w.day] = wk[w.day] || []).push(w); });
+    outer.appendChild(wrap);
+    outer.appendChild(el('div', 'bk-calk', 'Crossed-out days are already booked.' + (BK.form.weekly && BK.form.weekly.length ? ' Days with a dot have a weekly event; you can still book them.' : '') + ' Point at or tap a marked day to see the times.'));
+    outer.appendChild(picked); outer.appendChild(warn);
     (BK.booked || []).forEach(function(d){ booked[d] = 1; });
     if (booked[bkSel]) bkSel = '';
+    function weekly(iso){   // "The clubhouse is reserved from 6:00 PM to 9:00 PM for the weekly jam session." for that weekday
+      var p = isoParts(iso);
+      return (wk[new Date(p[0], p[1], p[2]).getDay()] || []).map(function(w){
+        return 'The clubhouse is reserved from ' + niceTime(w.from) + ' to ' + niceTime(w.to) + (w.what ? ' for ' + w.what : '') + '.';
+      }).join(' ');
+    }
+    function about(iso){
+      var out = [];
+      if (booked[iso]){
+        var t = (BK.bookedTimes || {})[iso] || [];
+        out.push(t.length ? 'Reserved ' + t.join(' and ') + '.' : 'Already reserved.');
+        out.push('Contact a board member if you wish to reserve during this date.');
+      }
+      var w = weekly(iso); if (w) out.unshift(w);
+      return out.join(' ');
+    }
+    function showTip(b, iso){
+      var txt = about(iso); if (!txt){ tip.hidden = true; return; }
+      tip.textContent = txt; tip.hidden = false;
+      var c = wrap.getBoundingClientRect(), r = b.getBoundingClientRect(), w = tip.offsetWidth;
+      var x = Math.max(4, Math.min(r.left - c.left + r.width / 2 - w / 2, c.width - w - 4));
+      var above = r.top - c.top - tip.offsetHeight - 6;
+      tip.style.left = x + 'px'; tip.style.top = (above > 0 ? above : r.bottom - c.top + 6) + 'px';
+    }
+    grid.addEventListener('mouseleave', function(){ tip.hidden = true; });
     if (!bkMonth){ var f = isoParts(bkSel || BK.from); bkMonth = [f[0], f[1]]; }
     function draw(){
       var cur = bkMonth[0] + '-' + pad2(bkMonth[1] + 1);
@@ -1805,14 +1854,27 @@ html.vid .ripples{display:none}
         var iso = cur + '-' + pad2(d), b = el('button', '', String(d));
         b.type = 'button';
         if (iso < BK.from || iso > BK.to) b.disabled = true;
-        else if (booked[iso]){ b.disabled = true; b.className = 'booked'; b.setAttribute('aria-label', d + ', already booked'); }
+        else if (booked[iso]){   // can't be picked; pointing at it or tapping it shows the times
+          b.className = 'booked'; b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', d + ', already booked. ' + about(iso));
+          b.addEventListener('click', (function(b, iso){ return function(){ if (!tip.hidden && tip._for === iso){ tip.hidden = true; return; } showTip(b, iso); tip._for = iso; }; })(b, iso));
+        }
         else {
           if (iso === bkSel) b.className = 'sel';
-          b.addEventListener('click', (function(iso){ return function(){ bkSel = iso; $('bkErr').textContent = ''; draw(); }; })(iso));
+          b.addEventListener('click', (function(iso){ return function(){ bkSel = iso; $('bkErr').textContent = ''; tip.hidden = true; draw(); }; })(iso));
+        }
+        if (!b.disabled && weekly(iso)){
+          b.classList.add('wk');
+          if (!booked[iso]) b.setAttribute('aria-label', d + '. ' + weekly(iso));
+        }
+        if (!b.disabled && about(iso)){
+          b.addEventListener('mouseenter', (function(b, iso){ return function(){ showTip(b, iso); tip._for = iso; }; })(b, iso));
+          b.addEventListener('focus', (function(b, iso){ return function(){ showTip(b, iso); tip._for = iso; }; })(b, iso));
+          b.addEventListener('blur', function(){ tip.hidden = true; });
         }
         grid.appendChild(b);
       }
       picked.textContent = bkSel ? niceDay(bkSel) : '';
+      warn.textContent = bkSel ? weekly(bkSel) : ''; warn.hidden = !warn.textContent;   // a Friday: the jam session note stays under the date
     }
     function move(k){ var t = new Date(bkMonth[0], bkMonth[1] + k, 1); bkMonth = [t.getFullYear(), t.getMonth()]; draw(); }
     prev.addEventListener('click', function(){ move(-1); });
@@ -1823,8 +1885,13 @@ html.vid .ripples{display:none}
   function bkDraw(){
     var box = $('bkFields'); box.textContent = '';
     if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: nothing you send here goes anywhere. Booked days are not shown.'));
-    if (BK.form.conditions){ box.appendChild(el('div', 'popsec', 'Conditions')); box.appendChild(termsEl(BK.form.conditions)); }
-    BK.form.questions.forEach(function(q){
+    if (BK.form.conditions){ var cw = box.appendChild(el('div', 'bk-q bk-cond')); cw.appendChild(el('div', 'bk-l', 'Conditions')); cw.appendChild(termsEl(BK.form.conditions)); }
+    var qs = BK.form.questions.slice(), ni = qs.map(function(q){ return q.id; }).indexOf('name');
+    if (ni >= 0 && qs.some(function(q){ return q.id === 'notes'; })){   // the signature goes right above "Anything else"
+      var sig = qs.splice(ni, 1)[0];
+      qs.splice(qs.map(function(q){ return q.id; }).indexOf('notes'), 0, sig);
+    }
+    qs.forEach(function(q){
       if (q.type === 'payment') return;   // that's the two send buttons at the bottom
       var w = el('div', 'bk-q'), fid = 'bkq_' + q.id, lab = el('label', 'bk-l', q.label), inp = null;
       w.setAttribute('data-q', q.id);
@@ -1852,7 +1919,7 @@ html.vid .ripples{display:none}
         if (q.type === 'contact'){ inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email'; inp.maxLength = 100; inp.setAttribute('autocapitalize', 'off'); }
       }
       if (inp){ inp.id = fid; lab.htmlFor = fid; w.appendChild(inp); }
-      if (q.type === 'date' || q.type === 'time'){   // date and times sit together (beside the rest on computers)
+      if (q.type === 'date' || q.type === 'time' || q.id === 'facilities' || q.links){   // facility, date and times sit together (beside the rest on computers)
         var when = box.querySelector('.bk-when') || box.appendChild(el('div', 'bk-when'));
         when.appendChild(w);
       } else box.appendChild(w);
@@ -1949,7 +2016,7 @@ html.vid .ripples{display:none}
       $('bkErr').textContent = (r && r.message) || 'That did not go through. Please try again.';
       if (r && r.taken) google.script.run.withSuccessHandler(function(f){   // someone just took the day: show the calendar as it is now
         if (!f || !f.ok) return;
-        BK.booked = f.booked; var w = bookDlg.querySelector('[data-q="date"] .bk-calwrap');
+        BK.booked = f.booked; BK.bookedTimes = f.bookedTimes; var w = bookDlg.querySelector('[data-q="date"] .bk-calwrap');
         if (w) w.parentNode.replaceChild(bkCal(), w);
       }).getBookingForm();
     }).withFailureHandler(function(x){
@@ -2071,8 +2138,37 @@ html.vid .ripples{display:none}
       list.appendChild(box);
     });
   }
+  // Weekly events (form.weekly): day, from, to, what ("the weekly jam session")
+  var WDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function wkDraw(){
+    var list = $('bkeWeekly'); list.textContent = '';
+    ED.weekly = ED.weekly || [];
+    if (!ED.weekly.length) list.appendChild(el('div', 'bk-fixed', 'None.'));
+    ED.weekly.forEach(function(w, i){
+      var box = el('div', 'bk-ed'), row = el('div', 'bk-edrow');
+      function pick(opts, val, set){
+        var sel = el('select', 'bk-in');
+        opts.forEach(function(o){ var x = el('option', '', o[1]); x.value = o[0]; sel.appendChild(x); });
+        sel.value = String(val); sel.addEventListener('change', function(){ set(sel.value); edDirty = true; });
+        row.appendChild(sel);
+      }
+      pick(WDAYS.map(function(d, k){ return [String(k), d]; }), w.day, function(v){ w.day = Number(v); });
+      pick(timeList(0, 1410), w.from, function(v){ w.from = v; });
+      row.appendChild(el('span', 'bk-fixed', 'to'));
+      pick(timeList(30, 1440), w.to, function(v){ w.to = v; });
+      var what = el('input', 'bk-in'); what.type = 'text'; what.value = w.what || ''; what.maxLength = 120; what.placeholder = 'What it is, e.g. the weekly jam session';
+      what.addEventListener('input', function(){ w.what = what.value; edDirty = true; });
+      var mv = el('div', 'vol-btns'), rm = el('button', '', 'Remove'); rm.type = 'button';
+      rm.addEventListener('click', function(){ ED.weekly.splice(i, 1); edDirty = true; wkDraw(); });
+      mv.appendChild(rm);
+      box.appendChild(row); box.appendChild(what); box.appendChild(mv); list.appendChild(box);
+    });
+  }
+  $('bkeWkAdd').addEventListener('click', function(){ if (!ED) return; (ED.weekly = ED.weekly || []).push({day: 5, from: '18:00', to: '21:00', what: ''}); edDirty = true; wkDraw(); });
   function edCollect(){
     ED.conditions = $('bkeTerms').value;
+    for (var k = 0; k < (ED.weekly || []).length; k++)
+      if (ED.weekly[k].to <= ED.weekly[k].from) return 'The weekly event on ' + WDAYS[ED.weekly[k].day] + ' needs to end after it starts.';
     for (var i = 0; i < ED.questions.length; i++){
       var q = ED.questions[i];
       if (!q.label.trim()) return 'Question ' + (i + 1) + ' has no wording. Type it, or remove the question.';
@@ -2085,7 +2181,7 @@ html.vid .ripples{display:none}
     edMsg('', 'Loading…'); $('bkeList').textContent = ''; $('bkeSave').disabled = true; bkEditDlg.showModal();
     google.script.run.withSuccessHandler(function(r){
       if (!r || !r.ok){ edMsg((r && r.message) || 'Could not load the form.'); return; }
-      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); edMsg(); $('bkeSave').disabled = false;
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); wkDraw(); edMsg(); $('bkeSave').disabled = false;
     }).withFailureHandler(function(x){ edMsg('Could not load the form (' + ((x && x.message) || x) + ').'); }).getBookingForm();
   });
   $('bkeTerms').addEventListener('input', function(){ edDirty = true; });
@@ -2107,7 +2203,7 @@ html.vid .ripples{display:none}
     google.script.run.withSuccessHandler(function(r){
       $('bkeSave').disabled = false;
       if (!r || !r.ok){ edMsg((r && r.message) || 'Could not save.'); return; }
-      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw();
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); wkDraw();
       edMsg('', 'Saved. The form shows your changes now.');
     }).withFailureHandler(function(x){ $('bkeSave').disabled = false; edMsg('Something went wrong (' + ((x && x.message) || x) + '). Your changes are not saved yet.'); }).saveBookingForm(CODE, ED);
   });
