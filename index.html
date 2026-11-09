@@ -166,14 +166,22 @@ a.card:focus-visible { outline: 3px solid var(--oak); outline-offset: 3px; }
 /* Become a Member: the tile opens in place (1 download, 2 upload); open, it takes the whole row */
 /* header keeps the frosted card look; the opened steps get the lighter dashboard-tile background (#pumping-card) */
 .join{border:1px solid var(--glass-line);border-radius:14px;overflow:hidden;transition:border-color .15s}
+.join{display:flex;flex-direction:column}
+.join>.join-head{flex:1 0 auto}   /* when the tile beside it is taller, the header fills the tile (no empty strip) */
 .join.open{grid-column:1/-1;border-color:var(--oak)}
-.join.open+.card{grid-column:1/-1}   /* Clubhouse Sign-Up then takes the whole next row */
+.join.open+.join{grid-column:1/-1}   /* Clubhouse Sign-Up then takes the whole next row */
+.join.shown{border-color:var(--oak)}   /* Clubhouse Sign-Up open: it stays in its own column */
+.links:has(>.join.shown)>.join:not(.shown){align-self:start}   /* the tile beside it keeps its height */
+.join-step.book-step{grid-template-columns:1fr}
+.book-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.book-btns .join-btn{flex:1 1 0;min-width:120px;max-width:200px}
+.join-body .book-step{border-top:0}
 .join>.card.join-head{border:0;cursor:pointer;border-radius:0}
 .join>.card.join-head:hover{background:var(--glass-hover)}
 .join:hover{border-color:var(--oak)}
 .join-head:focus-visible{outline:3px solid var(--oak);outline-offset:-3px}
 .join-head .arrow svg{transition:transform .2s}
-.join.open .join-head .arrow svg{transform:rotate(90deg)}
+.join.open .join-head .arrow svg,.join.shown .join-head .arrow svg{transform:rotate(90deg)}
 .join-body{padding:4px 20px 18px;border-top:1px solid var(--glass-line);background:rgba(6,12,16,.22)}
 .join-step{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px 14px;padding:14px 0}
 .join-step:not(:first-child){border-top:1px solid var(--glass-line)}
@@ -200,6 +208,7 @@ a.card:focus-visible { outline: 3px solid var(--oak); outline-offset: 3px; }
   .join-body{padding:2px 14px 14px}
   .join-step{grid-template-columns:auto 1fr}
   .join-step .join-btn{grid-column:1/-1;margin-top:8px;padding-block:10px}
+  .book-btns .join-btn{max-width:none;margin-top:0}
   .join-form{margin-left:0}
   .join-form .mem-row .mem-btn,.join-form .mem-row .mem-cancel{flex:1}
 }
@@ -352,12 +361,12 @@ dialog.pwdlg .popbody .err:empty,dialog.pwdlg .popbody .ok:empty{min-height:0;ma
 @media (prefers-reduced-motion:reduce){.pophead{transition:none}}
 /* Clubhouse booking form, the Manager's Bookings list and the form editor (2026-11-09) */
 .bk-terms{font-size:1rem;line-height:1.6;color:var(--paper);background:rgba(255,248,236,.05);border-left:3px solid var(--oak);border-radius:4px 12px 12px 4px;padding:14px 16px 4px}
-.bk-terms p{margin:0 0 14px;color:var(--paper);font-size:1rem}
+dialog.pwdlg .bk-terms p{margin:0 0 14px;color:var(--paper);font-size:1rem}   /* (dialog.pwdlg p would make them small and grey) */
 .bk-terms ul{margin:0 0 14px;padding-left:20px}
 .bk-terms li{margin:0 0 8px;padding-left:2px}
 .bk-terms li::marker{color:var(--oak)}
 .bk-terms b{color:var(--oak);font-weight:600}
-.bk-terms p:last-child:not(:first-child){color:var(--paper-2);font-style:italic}
+dialog.pwdlg .bk-terms p:last-child:not(:first-child){color:var(--paper-2);font-style:italic}
 dialog.pwdlg input.bk-in.bk-sign{font-family:"Dancing Script","Snell Roundhand","Segoe Script",cursive;font-size:30px;line-height:1.2;padding:6px 4px 2px;background:none;border:0;border-bottom:1.5px solid var(--paper-2);border-radius:0}
 dialog.pwdlg input.bk-in.bk-sign:focus{outline:none;border-bottom-color:var(--oak)}
 .bk-hint{font-size:.8rem;color:var(--paper-2);margin:6px 0 0;line-height:1.4}
@@ -402,15 +411,53 @@ dialog.pwdlg .bk-link .bk-in{margin:0;font-size:14px;padding:8px}
 dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
 .bk-fixed{font-size:.78rem;color:var(--paper-2);margin-top:6px}
 .bk-ed>.bk-fixed:first-child{margin-top:0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-/* computers: wider form, the date and times in their own column beside the conditions and questions */
+/* computers: two equal columns, the conditions and the signature on the left (all shown, no box to scroll inside) and the
+   other questions on the right, like a paper agreement */
 @media (min-width: 900px){
-  dialog.pwdlg.pop.wide#bookDlg{max-width:980px}
-  #bkFields{display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:28px;align-items:start}
-  #bkFields>*{grid-column:1}
-  #bkFields>.bk-when{grid-column:2;grid-row:1/span 40;position:sticky;top:0;padding-top:4px}
-  #bkFields>.bk-when>.bk-q:first-child{margin-top:0}
+  dialog.pwdlg.pop.wide#bookDlg{max-width:1040px}
+  #bkFields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-items:start}
+  #bkFields>*{grid-column:2}
+  #bkFields>.bk-left{grid-column:1;grid-row:span 40}
+  #bkFields .bk-left .bk-terms{font-size:.95rem;line-height:1.5}
+  #bkFields .bk-left .bk-terms p{font-size:.95rem}
+  #bkFields .bk-left>.bk-cond,#bkFields>.bk-when>.bk-q:first-child{margin-top:4px}
+  #bkFields .bk-cal{max-width:none}
   #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
 }
+/* light booking form (2026-11-09 preview): warm paper card, dark ink, a deeper oak for text so it reads on the light paper */
+#bookDlg.light{--paper:#2B2117;--paper-2:rgba(43,33,23,.68);--glass:#fff;--glass-line:rgba(43,33,23,.16);--ink-oak:#9A6222;background:#FBF6EE;color:var(--paper);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#bookDlg.light .popx{background:rgba(43,33,23,.08)}
+#bookDlg.light .popx:hover{background:rgba(43,33,23,.14)}
+#bookDlg.light .pophead{background:#fff;box-shadow:0 1px 0 var(--glass-line)}
+#bookDlg.light .pophead h3{font-weight:600}
+#bookDlg.light .popfoot{background:#fff}
+#bookDlg.light .bk-terms{background:#fff;border:1px solid var(--glass-line);border-left:3px solid var(--oak)}
+#bookDlg.light .bk-terms b,#bookDlg.light .bk-l .req{color:var(--ink-oak)}
+#bookDlg.light .bk-in{background:#fff;color-scheme:light}
+#bookDlg.light .bk-in:focus{outline:none;border-color:var(--oak);box-shadow:0 0 0 3px rgba(214,154,74,.25)}
+#bookDlg.light input.bk-in.bk-sign{background:none;box-shadow:none;border-bottom-color:rgba(43,33,23,.45)}
+#bookDlg.light label.bk-opt{background:#fff}
+#bookDlg.light .bk-cal{background:#fff}
+#bookDlg.light .bk-calh button{background:rgba(43,33,23,.07)}
+#bookDlg.light .bk-grid button{background:rgba(214,154,74,.13)}
+#bookDlg.light .bk-grid button:hover:not(:disabled):not(.sel){background:rgba(214,154,74,.28)}
+#bookDlg.light .bk-grid button:disabled{background:none;color:rgba(43,33,23,.25)}
+#bookDlg.light .bk-grid button.booked{background:rgba(180,71,45,.08);color:rgba(43,33,23,.35)}
+#bookDlg.light .bk-grid button.sel{background:var(--oak);color:var(--bark)}
+#bookDlg.light .bk-prev{color:var(--paper)}
+#bookDlg.light .err{color:#B4472D}
+#bookDlg.light .popfoot button:not(.primary){background:#fff;color:var(--paper);border-color:rgba(43,33,23,.25)}
+/* conditions: same heading as the questions; on computers both columns start level */
+.bk-q.bk-cond{margin-top:4px}
+.bk-cal{position:relative}
+.bk-grid button.booked{cursor:help}
+.bk-grid button.wk{position:relative}
+.bk-grid button.wk::after{content:"";position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--oak)}
+.bk-grid button.wk.sel::after{background:var(--bark)}
+.bk-tip{position:absolute;z-index:2;width:max-content;max-width:min(260px,calc(100% - 8px));padding:8px 11px;border-radius:10px;background:#2B2117;color:#FFF8EC;font-size:.82rem;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.3);pointer-events:none}
+.bk-wk{margin-top:6px;padding:8px 11px;border-radius:10px;border:1px solid var(--oak);background:rgba(214,154,74,.14);color:var(--paper);font-size:.86rem;line-height:1.4}
+.bk-wk[hidden]{display:none}
+.bk-wk::before{content:"Heads up: ";font-weight:600}
 dialog.pwdlg label.bk-chk{display:flex;align-items:center;gap:6px;margin:0;color:var(--paper);font-size:.9rem;cursor:pointer}
 .bk-chk input{accent-color:var(--oak);width:18px;height:18px;margin:0}
 
@@ -883,11 +930,23 @@ html.vid .ripples{display:none}
         </div>
       </div>
 
-      <a class="card" id="signupCard" href="#">
-        <h2>Clubhouse Sign-Up</h2>
-        <p><span data-edit="signupText">Reserve the clubhouse for your event.</span></p>
-        <span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span>
-      </a>
+      <div class="join" id="signupCard">
+        <div class="card join-head" id="bookHead" role="button" tabindex="0" aria-expanded="false" aria-controls="bookBody">
+          <h2>Clubhouse Sign-Up</h2>
+          <p><span data-edit="signupText">Reserve the clubhouse for your event.</span></p>
+          <span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span>
+        </div>
+        <div class="join-body" id="bookBody" hidden>
+          <div class="join-step book-step" id="memAsk">
+            <div><h3>Are you a current year member?</h3><p>Only current-year members can rent the clubhouse and pool.</p></div>
+            <div class="book-btns"><button type="button" class="mem-btn join-btn on" id="memNo">No</button><button type="button" class="mem-btn join-btn" id="memYes">Yes</button></div>
+          </div>
+          <div class="join-step book-step" id="memNoMsg" hidden>
+            <div><h3>Membership required</h3><p>You must be a member to rent the clubhouse and pool. Download the membership form, fill it out, and upload it here or return it to our membership coordinator. Thank you!</p></div>
+            <div class="book-btns"><a class="mem-btn join-btn on" id="memFormLink" href="#" download>Download form</a><button type="button" class="mem-btn join-btn" id="memUpload">Upload form</button></div>
+          </div>
+        </div>
+      </div>
     </nav>
     <div class="mem-panel si-out" id="memPanel">
       <div class="mem-text">
@@ -1052,18 +1111,6 @@ html.vid .ripples{display:none}
   </span>
 </div>
 
-<dialog id="memberDlg" class="pwdlg pop" aria-labelledby="memH">
-  <div class="pophead"><h3 id="memH">Are you a current year member?</h3><button type="button" class="popx" id="memClose" aria-label="Close">×</button></div>
-  <div class="popbody" id="memNoMsg" hidden>
-    <p class="memno">You must be a member to rent the clubhouse and pool. <span id="memFormLine">Download the form <a id="memFormLink" href="#" download>here</a>,</span> fill it out, and upload it here or return it to our membership coordinator. Thank you!</p>
-  </div>
-  <div class="popfoot" id="memAsk">
-    <button type="button" id="memNo">No</button>
-    <button type="button" class="primary" id="memYes">Yes</button>
-  </div>
-  <div class="popfoot" id="memNoFoot" hidden><button type="button" class="primary" id="memUpload">Upload form</button></div>
-</dialog>
-
 <dialog id="joinVolDlg" class="pwdlg pop" aria-labelledby="jvH">
   <div class="pophead"><div><h3 id="jvH">Sign up to volunteer</h3><span class="popsub">Someone on the board will contact you</span></div><button type="button" class="popx" id="jvCancel" aria-label="Close">×</button></div>
   <div class="popbody">
@@ -1094,7 +1141,7 @@ html.vid .ripples{display:none}
 </dialog>
 
 <!-- Clubhouse booking form (getBookingForm / submitBooking in Code.gs), live since 2026-11-09 -->
-<dialog id="bookDlg" class="pwdlg pop wide" aria-labelledby="bkH">
+<dialog id="bookDlg" class="pwdlg pop wide light" aria-labelledby="bkH">
   <div class="pophead"><div><h3 id="bkH">Clubhouse Rental Agreement</h3><span class="popsub">Rolling Oaks Club · please read the conditions, then fill in the form</span></div><button type="button" class="popx" id="bkClose" aria-label="Close">×</button></div>
   <div class="popbody"><form id="bkForm" novalidate><div id="bkFields"></div></form></div>
   <div class="popfoot"><div class="err" id="bkErr" role="alert"></div><button type="submit" form="bkForm" class="primary" id="bkGo">Pay by card</button><button type="submit" form="bkForm" id="bkGo2">Pay by cash/check</button></div>
@@ -1115,7 +1162,11 @@ html.vid .ripples{display:none}
   <div class="popbody">
   <div class="popsec">Rental conditions</div>
   <textarea class="bk-in" id="bkeTerms" rows="12" maxlength="8000"></textarea>
-  <div class="bk-hint">Leave an empty line between paragraphs. Start a line with - (a dash and a space) to make it a bullet point. Put **two stars** on each side of words to make them bold.</div>
+  <div class="bk-hint">Leave an empty line between paragraphs. Start a line with - (a dash and a space) to make it a bullet point. Put **two stars** on each side of words to make them bold, or _an underscore_ on each side for italics.</div>
+  <div class="popsec">Weekly events</div>
+  <div class="bk-hint" style="margin:0 0 4px">Times the clubhouse is in use every week. Those days can still be booked; the form puts a dot on them and shows the time.</div>
+  <div id="bkeWeekly"></div>
+  <div class="vol-btns"><button type="button" id="bkeWkAdd">+ Add a weekly event</button></div>
   <div class="popsec">Questions</div>
   <div id="bkeList"></div>
   <div class="vol-btns"><button type="button" id="bkeAdd">+ Add a question</button><button type="button" id="bkePrev">Try the form</button></div>
@@ -1228,20 +1279,6 @@ html.vid .ripples{display:none}
   });
 
   document.addEventListener('scroll', function(e){ var b = e.target; if (b && b.classList && b.classList.contains('popbody') && b.previousElementSibling) b.previousElementSibling.classList.toggle('lined', b.scrollTop > 2); }, true);
-  var memberDlg = $('memberDlg'), memAsk = $('memAsk'), memNoMsg = $('memNoMsg');
-  $('signupCard').addEventListener('click', function(e){
-    e.preventDefault();
-    memAsk.hidden = false; memNoMsg.hidden = true; $('memNoFoot').hidden = true; $('memH').textContent = 'Are you a current year member?';
-    memberDlg.showModal();
-  });
-  $('memYes').addEventListener('click', function(){ memberDlg.close(); openBooking(); });
-  $('memNo').addEventListener('click', function(){
-    var h = rulesCard.getAttribute('href');
-    if (h && h !== '#') $('memFormLink').setAttribute('href', h);
-    else $('memFormLine').textContent = 'Download the membership form from the Rules & Regulations document,';
-    memAsk.hidden = true; memNoMsg.hidden = false; $('memNoFoot').hidden = false; $('memH').textContent = 'Membership required';
-  });
-  $('memClose').addEventListener('click', function(){ memberDlg.close(); });
 
   // footer: Rules and Membership Form open the current Rules PDF (the membership form is in it); Sign-Up asks the member question
   ['footMember'].forEach(function(id){
@@ -1358,9 +1395,9 @@ html.vid .ripples{display:none}
   });
   window.rocOpenJoin = function(){ setJoin(true); };
   function focusName(){ try { $('formName').focus({preventScroll: true}); } catch(x){ $('formName').focus(); } }
-  // from the Membership Required popup and the footer: open the tile straight to the upload form
+  // from Clubhouse Sign-Up's "Membership required" and the footer: open the tile straight to the upload form
   function openUpload(){
-    if (memberDlg.open) memberDlg.close();
+    if (bookHead.getAttribute('aria-expanded') === 'true') setBook(false);
     setForm(true, true); if (joinHead.getAttribute('aria-expanded') !== 'true') setJoin(true);
     joinTile.scrollIntoView({behavior: 'smooth', block: 'start'}); focusName();
   }
@@ -1370,6 +1407,28 @@ html.vid .ripples{display:none}
   });
   formOpenBtn.addEventListener('click', function(){ var open = formOpenBtn.getAttribute('aria-expanded') !== 'true'; setForm(open); if (open) focusName(); });
   $('memUpload').addEventListener('click', openUpload);
+  // Clubhouse Sign-Up opens in place too: the member question slides out of the tile (Yes opens the booking form)
+  var bookHead = $('bookHead'), bookBody = $('bookBody');
+  function setBook(open){
+    if (open === (bookHead.getAttribute('aria-expanded') === 'true')) return;
+    bookHead.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open){ $('memAsk').hidden = false; $('memNoMsg').hidden = true; }
+    signupCard.classList.toggle('shown', open);
+    slide(bookBody, open, null, STEPS);
+  }
+  window.rocOpenBook = function(){ setBook(true); signupCard.scrollIntoView({behavior: 'smooth', block: 'start'}); };
+  bookHead.addEventListener('click', function(){ if (!document.body.classList.contains('editing')) setBook(bookHead.getAttribute('aria-expanded') !== 'true'); });
+  bookHead.addEventListener('keydown', function(e){
+    if ((e.key === 'Enter' || e.key === ' ') && !document.body.classList.contains('editing')){ e.preventDefault(); bookHead.click(); }
+  });
+  $('memYes').addEventListener('click', function(){ openBooking(); });
+  $('memNo').addEventListener('click', function(){
+    var h = rulesCard.getAttribute('href');
+    $('memFormLink').hidden = !h || h === '#';
+    if (!$('memFormLink').hidden) $('memFormLink').setAttribute('href', h);
+    var a = $('memAsk'), b = $('memNoMsg');
+    slide(a, false, function(){ slide(b, true); });
+  });
   if ($('footForm')) $('footForm').addEventListener('click', function(e){ e.preventDefault(); openUpload(); });
   formFiles.addEventListener('change', function(){ formErr.textContent = ''; });
   $('formCancel').addEventListener('click', function(){ setForm(false); formOpenBtn.focus(); });
@@ -1410,7 +1469,7 @@ html.vid .ripples{display:none}
     }, fail);
   });
 
-  if ($('footSignup')) $('footSignup').addEventListener('click', function(e){ e.preventDefault(); $('signupCard').click(); });
+  if ($('footSignup')) $('footSignup').addEventListener('click', function(e){ e.preventDefault(); window.rocOpenBook(); });
   if ($('footYear')) $('footYear').textContent = new Date().getFullYear();
 
   function loadRulesInfo(){
@@ -1723,6 +1782,7 @@ html.vid .ripples{display:none}
   function pad2(n){ return ('0' + n).slice(-2); }
   function isoParts(iso){ var p = iso.split('-').map(Number); return [p[0], p[1] - 1, p[2]]; }
   function niceDay(iso){ var p = isoParts(iso); return new Date(p[0], p[1], p[2]).toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'}); }
+  function niceTime(hm){ var t = hm.split(':').map(Number), h = t[0] % 24; return t[0] === 24 ? 'midnight' : (h % 12 || 12) + ':' + pad2(t[1]) + (h < 12 ? ' AM' : ' PM'); }
   function timeList(from, to){   // minutes after midnight, every half hour -> [["18:30", "6:30 PM"], …]
     var out = [];
     for (var m = from; m <= to; m += 30){
@@ -1731,10 +1791,16 @@ html.vid .ripples{display:none}
     }
     return out;
   }
-  // The conditions, as the Manager typed them: an empty line = new paragraph, "- " = bullet point, **words** = bold (text only, never HTML)
+  // The conditions, as the Manager typed them: an empty line = new paragraph, "- " = bullet point, **words** = bold, _words_ = italics (text only, never HTML)
   function termsEl(text){
     var box = el('div', 'bk-terms');
-    function inline(node, t){ t.split(/\*\*(.+?)\*\*/).forEach(function(part, i){ node.appendChild(i % 2 ? el('b', '', part) : document.createTextNode(part)); }); return node; }
+    function inline(node, t){
+      t.split(/\*\*(.+?)\*\*/).forEach(function(part, i){
+        if (i % 2){ node.appendChild(el('b', '', part)); return; }
+        part.split(/(?:^|\b)_(.+?)_(?:\b|$)/).forEach(function(x, k){ node.appendChild(k % 2 ? el('i', '', x) : document.createTextNode(x)); });
+      });
+      return node;
+    }
     text.split(/\n\s*\n/).forEach(function(par){
       var list = null, p = null;
       par.split('\n').forEach(function(line){
@@ -1752,9 +1818,39 @@ html.vid .ripples{display:none}
     var prev = el('button', '', '‹'), next = el('button', '', '›'), picked = el('div', 'bk-picked'), booked = {};
     prev.type = next.type = 'button'; prev.setAttribute('aria-label', 'Previous month'); next.setAttribute('aria-label', 'Next month');
     head.appendChild(prev); head.appendChild(title); head.appendChild(next); wrap.appendChild(head); wrap.appendChild(grid);
-    outer.appendChild(wrap); outer.appendChild(el('div', 'bk-calk', 'Crossed-out days are already booked.')); outer.appendChild(picked);
+    var tip = el('div', 'bk-tip'), wk = {}, warn = el('div', 'bk-wk');
+    tip.setAttribute('role', 'status'); tip.hidden = true; wrap.appendChild(tip);
+    (BK.form.weekly || []).forEach(function(w){ (wk[w.day] = wk[w.day] || []).push(w); });
+    outer.appendChild(wrap);
+    outer.appendChild(el('div', 'bk-calk', 'Crossed-out days are already booked.' + (BK.form.weekly && BK.form.weekly.length ? ' Days with a dot have a weekly event; you can still book them.' : '') + ' Point at or tap a marked day to see the times.'));
+    outer.appendChild(picked); outer.appendChild(warn);
     (BK.booked || []).forEach(function(d){ booked[d] = 1; });
     if (booked[bkSel]) bkSel = '';
+    function weekly(iso){   // "The clubhouse is reserved from 6:00 PM to 9:00 PM for the weekly jam session." for that weekday
+      var p = isoParts(iso);
+      return (wk[new Date(p[0], p[1], p[2]).getDay()] || []).map(function(w){
+        return 'The clubhouse is reserved from ' + niceTime(w.from) + ' to ' + niceTime(w.to) + (w.what ? ' for ' + w.what : '') + '.';
+      }).join(' ');
+    }
+    function about(iso){
+      var out = [];
+      if (booked[iso]){
+        var t = (BK.bookedTimes || {})[iso] || [];
+        out.push(t.length ? 'Reserved ' + t.join(' and ') + '.' : 'Already reserved.');
+        out.push('Contact a board member if you wish to reserve during this date.');
+      }
+      var w = weekly(iso); if (w) out.unshift(w);
+      return out.join(' ');
+    }
+    function showTip(b, iso){
+      var txt = about(iso); if (!txt){ tip.hidden = true; return; }
+      tip.textContent = txt; tip.hidden = false;
+      var c = wrap.getBoundingClientRect(), r = b.getBoundingClientRect(), w = tip.offsetWidth;
+      var x = Math.max(4, Math.min(r.left - c.left + r.width / 2 - w / 2, c.width - w - 4));
+      var above = r.top - c.top - tip.offsetHeight - 6;
+      tip.style.left = x + 'px'; tip.style.top = (above > 0 ? above : r.bottom - c.top + 6) + 'px';
+    }
+    grid.addEventListener('mouseleave', function(){ tip.hidden = true; });
     if (!bkMonth){ var f = isoParts(bkSel || BK.from); bkMonth = [f[0], f[1]]; }
     function draw(){
       var cur = bkMonth[0] + '-' + pad2(bkMonth[1] + 1);
@@ -1767,14 +1863,27 @@ html.vid .ripples{display:none}
         var iso = cur + '-' + pad2(d), b = el('button', '', String(d));
         b.type = 'button';
         if (iso < BK.from || iso > BK.to) b.disabled = true;
-        else if (booked[iso]){ b.disabled = true; b.className = 'booked'; b.setAttribute('aria-label', d + ', already booked'); }
+        else if (booked[iso]){   // can't be picked; pointing at it or tapping it shows the times
+          b.className = 'booked'; b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', d + ', already booked. ' + about(iso));
+          b.addEventListener('click', (function(b, iso){ return function(){ if (!tip.hidden && tip._for === iso){ tip.hidden = true; return; } showTip(b, iso); tip._for = iso; }; })(b, iso));
+        }
         else {
           if (iso === bkSel) b.className = 'sel';
-          b.addEventListener('click', (function(iso){ return function(){ bkSel = iso; $('bkErr').textContent = ''; draw(); }; })(iso));
+          b.addEventListener('click', (function(iso){ return function(){ bkSel = iso; $('bkErr').textContent = ''; tip.hidden = true; draw(); }; })(iso));
+        }
+        if (!b.disabled && weekly(iso)){
+          b.classList.add('wk');
+          if (!booked[iso]) b.setAttribute('aria-label', d + '. ' + weekly(iso));
+        }
+        if (!b.disabled && about(iso)){
+          b.addEventListener('mouseenter', (function(b, iso){ return function(){ showTip(b, iso); tip._for = iso; }; })(b, iso));
+          b.addEventListener('focus', (function(b, iso){ return function(){ showTip(b, iso); tip._for = iso; }; })(b, iso));
+          b.addEventListener('blur', function(){ tip.hidden = true; });
         }
         grid.appendChild(b);
       }
       picked.textContent = bkSel ? niceDay(bkSel) : '';
+      warn.textContent = bkSel ? weekly(bkSel) : ''; warn.hidden = !warn.textContent;   // a Friday: the jam session note stays under the date
     }
     function move(k){ var t = new Date(bkMonth[0], bkMonth[1] + k, 1); bkMonth = [t.getFullYear(), t.getMonth()]; draw(); }
     prev.addEventListener('click', function(){ move(-1); });
@@ -1785,7 +1894,8 @@ html.vid .ripples{display:none}
   function bkDraw(){
     var box = $('bkFields'); box.textContent = '';
     if (bkPreview) box.appendChild(el('div', 'bk-prev', 'Trying the form: nothing you send here goes anywhere. Booked days are not shown.'));
-    if (BK.form.conditions){ box.appendChild(el('div', 'popsec', 'Conditions')); box.appendChild(termsEl(BK.form.conditions)); }
+    var left = box.appendChild(el('div', 'bk-left'));   // the conditions, then the signature and email (the left column on computers)
+    if (BK.form.conditions){ var cw = left.appendChild(el('div', 'bk-q bk-cond')); cw.appendChild(el('div', 'bk-l', 'Conditions')); cw.appendChild(termsEl(BK.form.conditions)); }
     BK.form.questions.forEach(function(q){
       if (q.type === 'payment') return;   // that's the two send buttons at the bottom
       var w = el('div', 'bk-q'), fid = 'bkq_' + q.id, lab = el('label', 'bk-l', q.label), inp = null;
@@ -1814,10 +1924,11 @@ html.vid .ripples{display:none}
         if (q.type === 'contact'){ inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email'; inp.maxLength = 100; inp.setAttribute('autocapitalize', 'off'); }
       }
       if (inp){ inp.id = fid; lab.htmlFor = fid; w.appendChild(inp); }
-      if (q.type === 'date' || q.type === 'time'){   // date and times sit together (beside the rest on computers)
+      if (q.type === 'date' || q.type === 'time' || q.id === 'facilities' || q.links){   // facility, date and times sit together (beside the rest on computers)
         var when = box.querySelector('.bk-when') || box.appendChild(el('div', 'bk-when'));
         when.appendChild(w);
-      } else box.appendChild(w);
+      } else if (q.id === 'name' || q.id === 'contact') left.appendChild(w);   // signature and email under the conditions
+      else box.appendChild(w);
     });
     box.appendChild(el('p', 'bk-paynote bk-sendnote', 'To send your request, choose how you will pay below.'));
     var st = $('bkq_start'), en = $('bkq_end');
@@ -1911,7 +2022,7 @@ html.vid .ripples{display:none}
       $('bkErr').textContent = (r && r.message) || 'That did not go through. Please try again.';
       if (r && r.taken) google.script.run.withSuccessHandler(function(f){   // someone just took the day: show the calendar as it is now
         if (!f || !f.ok) return;
-        BK.booked = f.booked; var w = bookDlg.querySelector('[data-q="date"] .bk-calwrap');
+        BK.booked = f.booked; BK.bookedTimes = f.bookedTimes; var w = bookDlg.querySelector('[data-q="date"] .bk-calwrap');
         if (w) w.parentNode.replaceChild(bkCal(), w);
       }).getBookingForm();
     }).withFailureHandler(function(x){
@@ -2033,8 +2144,37 @@ html.vid .ripples{display:none}
       list.appendChild(box);
     });
   }
+  // Weekly events (form.weekly): day, from, to, what ("the weekly jam session")
+  var WDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function wkDraw(){
+    var list = $('bkeWeekly'); list.textContent = '';
+    ED.weekly = ED.weekly || [];
+    if (!ED.weekly.length) list.appendChild(el('div', 'bk-fixed', 'None.'));
+    ED.weekly.forEach(function(w, i){
+      var box = el('div', 'bk-ed'), row = el('div', 'bk-edrow');
+      function pick(opts, val, set){
+        var sel = el('select', 'bk-in');
+        opts.forEach(function(o){ var x = el('option', '', o[1]); x.value = o[0]; sel.appendChild(x); });
+        sel.value = String(val); sel.addEventListener('change', function(){ set(sel.value); edDirty = true; });
+        row.appendChild(sel);
+      }
+      pick(WDAYS.map(function(d, k){ return [String(k), d]; }), w.day, function(v){ w.day = Number(v); });
+      pick(timeList(0, 1410), w.from, function(v){ w.from = v; });
+      row.appendChild(el('span', 'bk-fixed', 'to'));
+      pick(timeList(30, 1440), w.to, function(v){ w.to = v; });
+      var what = el('input', 'bk-in'); what.type = 'text'; what.value = w.what || ''; what.maxLength = 120; what.placeholder = 'What it is, e.g. the weekly jam session';
+      what.addEventListener('input', function(){ w.what = what.value; edDirty = true; });
+      var mv = el('div', 'vol-btns'), rm = el('button', '', 'Remove'); rm.type = 'button';
+      rm.addEventListener('click', function(){ ED.weekly.splice(i, 1); edDirty = true; wkDraw(); });
+      mv.appendChild(rm);
+      box.appendChild(row); box.appendChild(what); box.appendChild(mv); list.appendChild(box);
+    });
+  }
+  $('bkeWkAdd').addEventListener('click', function(){ if (!ED) return; (ED.weekly = ED.weekly || []).push({day: 5, from: '18:00', to: '21:00', what: ''}); edDirty = true; wkDraw(); });
   function edCollect(){
     ED.conditions = $('bkeTerms').value;
+    for (var k = 0; k < (ED.weekly || []).length; k++)
+      if (ED.weekly[k].to <= ED.weekly[k].from) return 'The weekly event on ' + WDAYS[ED.weekly[k].day] + ' needs to end after it starts.';
     for (var i = 0; i < ED.questions.length; i++){
       var q = ED.questions[i];
       if (!q.label.trim()) return 'Question ' + (i + 1) + ' has no wording. Type it, or remove the question.';
@@ -2047,7 +2187,7 @@ html.vid .ripples{display:none}
     edMsg('', 'Loading…'); $('bkeList').textContent = ''; $('bkeSave').disabled = true; bkEditDlg.showModal();
     google.script.run.withSuccessHandler(function(r){
       if (!r || !r.ok){ edMsg((r && r.message) || 'Could not load the form.'); return; }
-      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); edMsg(); $('bkeSave').disabled = false;
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); wkDraw(); edMsg(); $('bkeSave').disabled = false;
     }).withFailureHandler(function(x){ edMsg('Could not load the form (' + ((x && x.message) || x) + ').'); }).getBookingForm();
   });
   $('bkeTerms').addEventListener('input', function(){ edDirty = true; });
@@ -2069,7 +2209,7 @@ html.vid .ripples{display:none}
     google.script.run.withSuccessHandler(function(r){
       $('bkeSave').disabled = false;
       if (!r || !r.ok){ edMsg((r && r.message) || 'Could not save.'); return; }
-      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw();
+      ED = JSON.parse(JSON.stringify(r.form)); edDirty = false; $('bkeTerms').value = ED.conditions; edDraw(); wkDraw();
       edMsg('', 'Saved. The form shows your changes now.');
     }).withFailureHandler(function(x){ $('bkeSave').disabled = false; edMsg('Something went wrong (' + ((x && x.message) || x) + '). Your changes are not saved yet.'); }).saveBookingForm(CODE, ED);
   });
