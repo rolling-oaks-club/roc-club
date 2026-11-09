@@ -424,29 +424,32 @@ dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
   #bkFields .bk-cal{max-width:none}
   #bkFields>.bk-done,#bkFields>.bk-pay,#bkFields>.bk-paynote:not(.bk-sendnote),#bkFields>.bk-prev{grid-column:1/-1}
 }
-/* light booking form (2026-11-09 preview): warm paper card, dark ink, a deeper oak for text so it reads on the light paper */
-#bookDlg.light{--paper:#2B2117;--paper-2:rgba(43,33,23,.68);--glass:#fff;--glass-line:rgba(43,33,23,.16);--ink-oak:#9A6222;background:#FBF6EE;color:var(--paper);box-shadow:0 20px 60px rgba(0,0,0,.35)}
-#bookDlg.light .popx{background:rgba(43,33,23,.08)}
-#bookDlg.light .popx:hover{background:rgba(43,33,23,.14)}
-#bookDlg.light .pophead{background:#fff;box-shadow:0 1px 0 var(--glass-line)}
-#bookDlg.light .pophead h3{font-weight:600}
-#bookDlg.light .popfoot{background:#fff}
-#bookDlg.light .bk-terms{background:#fff;border:1px solid var(--glass-line);border-left:3px solid var(--oak)}
-#bookDlg.light .bk-terms b,#bookDlg.light .bk-l .req{color:var(--ink-oak)}
-#bookDlg.light .bk-in{background:#fff;color-scheme:light}
-#bookDlg.light .bk-in:focus{outline:none;border-color:var(--oak);box-shadow:0 0 0 3px rgba(214,154,74,.25)}
-#bookDlg.light input.bk-in.bk-sign{background:none;box-shadow:none;border-bottom-color:rgba(43,33,23,.45)}
-#bookDlg.light label.bk-opt{background:#fff}
-#bookDlg.light .bk-cal{background:#fff}
-#bookDlg.light .bk-calh button{background:rgba(43,33,23,.07)}
-#bookDlg.light .bk-grid button{background:rgba(214,154,74,.13)}
-#bookDlg.light .bk-grid button:hover:not(:disabled):not(.sel){background:rgba(214,154,74,.28)}
-#bookDlg.light .bk-grid button:disabled{background:none;color:rgba(43,33,23,.25)}
-#bookDlg.light .bk-grid button.booked{background:rgba(180,71,45,.08);color:rgba(43,33,23,.35)}
-#bookDlg.light .bk-grid button.sel{background:var(--oak);color:var(--bark)}
-#bookDlg.light .bk-prev{color:var(--paper)}
-#bookDlg.light .err{color:#B4472D}
-#bookDlg.light .popfoot button:not(.primary){background:#fff;color:var(--paper);border-color:rgba(43,33,23,.25)}
+/* Light and dark follow the device (site-wide rule, DESIGN.md "Colors and theme"). Home is dark by design; a part that has a
+   light version carries class follows-theme, and its light look goes in this block (so far: the rental agreement). */
+@media (prefers-color-scheme: light){
+  .follows-theme#bookDlg{--paper:#2B2117;--paper-2:rgba(43,33,23,.68);--glass:#fff;--glass-line:rgba(43,33,23,.16);--ink-oak:#9A6222;background:#FBF6EE;color:var(--paper);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .follows-theme#bookDlg .popx{background:rgba(43,33,23,.08)}
+  .follows-theme#bookDlg .popx:hover{background:rgba(43,33,23,.14)}
+  .follows-theme#bookDlg .pophead{background:#fff;box-shadow:0 1px 0 var(--glass-line)}
+  .follows-theme#bookDlg .pophead h3{font-weight:600}
+  .follows-theme#bookDlg .popfoot{background:#fff}
+  .follows-theme#bookDlg .bk-terms{background:#fff;border:1px solid var(--glass-line);border-left:3px solid var(--oak)}
+  .follows-theme#bookDlg .bk-terms b,.follows-theme#bookDlg .bk-l .req{color:var(--ink-oak)}
+  .follows-theme#bookDlg .bk-in{background:#fff;color-scheme:light}
+  .follows-theme#bookDlg .bk-in:focus{outline:none;border-color:var(--oak);box-shadow:0 0 0 3px rgba(214,154,74,.25)}
+  .follows-theme#bookDlg input.bk-in.bk-sign{background:none;box-shadow:none;border-bottom-color:rgba(43,33,23,.45)}
+  .follows-theme#bookDlg label.bk-opt{background:#fff}
+  .follows-theme#bookDlg .bk-cal{background:#fff}
+  .follows-theme#bookDlg .bk-calh button{background:rgba(43,33,23,.07)}
+  .follows-theme#bookDlg .bk-grid button{background:rgba(214,154,74,.13)}
+  .follows-theme#bookDlg .bk-grid button:hover:not(:disabled):not(.sel){background:rgba(214,154,74,.28)}
+  .follows-theme#bookDlg .bk-grid button:disabled{background:none;color:rgba(43,33,23,.25)}
+  .follows-theme#bookDlg .bk-grid button.booked{background:rgba(180,71,45,.08);color:rgba(43,33,23,.35)}
+  .follows-theme#bookDlg .bk-grid button.sel{background:var(--oak);color:var(--bark)}
+  .follows-theme#bookDlg .bk-prev{color:var(--paper)}
+  .follows-theme#bookDlg .err{color:#B4472D}
+  .follows-theme#bookDlg .popfoot button:not(.primary){background:#fff;color:var(--paper);border-color:rgba(43,33,23,.25)}
+}
 /* conditions: same heading as the questions; on computers both columns start level */
 .bk-q.bk-cond{margin-top:4px}
 .bk-cal{position:relative}
@@ -454,7 +457,7 @@ dialog.pwdlg .bk-edrow select.bk-in{width:auto;flex:1 1 180px;margin:0}
 .bk-grid button.wk{position:relative}
 .bk-grid button.wk::after{content:"";position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--oak)}
 .bk-grid button.wk.sel::after{background:var(--bark)}
-.bk-tip{position:absolute;z-index:2;width:max-content;max-width:min(260px,calc(100% - 8px));padding:8px 11px;border-radius:10px;background:#2B2117;color:#FFF8EC;font-size:.82rem;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.3);pointer-events:none}
+.bk-tip{border:1px solid rgba(255,248,236,.25);position:absolute;z-index:2;width:max-content;max-width:min(260px,calc(100% - 8px));padding:8px 11px;border-radius:10px;background:#2B2117;color:#FFF8EC;font-size:.82rem;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.3);pointer-events:none}
 .bk-wk{margin-top:6px;padding:8px 11px;border-radius:10px;border:1px solid var(--oak);background:rgba(214,154,74,.14);color:var(--paper);font-size:.86rem;line-height:1.4}
 .bk-wk[hidden]{display:none}
 .bk-wk::before{content:"Heads up: ";font-weight:600}
@@ -1141,7 +1144,7 @@ html.vid .ripples{display:none}
 </dialog>
 
 <!-- Clubhouse booking form (getBookingForm / submitBooking in Code.gs), live since 2026-11-09 -->
-<dialog id="bookDlg" class="pwdlg pop wide light" aria-labelledby="bkH">
+<dialog id="bookDlg" class="pwdlg pop wide follows-theme" aria-labelledby="bkH">
   <div class="pophead"><div><h3 id="bkH">Clubhouse Rental Agreement</h3><span class="popsub">Rolling Oaks Club · please read the conditions, then fill in the form</span></div><button type="button" class="popx" id="bkClose" aria-label="Close">×</button></div>
   <div class="popbody"><form id="bkForm" novalidate><div id="bkFields"></div></form></div>
   <div class="popfoot"><div class="err" id="bkErr" role="alert"></div><button type="submit" form="bkForm" class="primary" id="bkGo">Pay by card</button><button type="submit" form="bkForm" id="bkGo2">Pay by cash/check</button></div>
